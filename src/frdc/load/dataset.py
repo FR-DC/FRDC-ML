@@ -3,16 +3,15 @@ from __future__ import annotations
 import io
 from collections import OrderedDict
 from dataclasses import dataclass
+from io import StringIO
 from pathlib import Path
-from typing import Iterable, Callable
+from typing import Iterable, Callable, Any
 
-import dvc
 import dvc.api
 import numpy as np
 import pandas as pd
 import torch
 from PIL import Image
-from PIL.Image import Image
 from torch.utils.data import Dataset, ConcatDataset
 from torchvision.transforms.v2 import (
     Compose,
@@ -90,8 +89,10 @@ class FRDCDataset(Dataset):
 
     @property
     def dataset_dir(self):
+        # TODO: Quite hacky, but unless someone moves the file, this should
+        #       work.
         return Path(
-            f"{self.site}/{self.date}/"
+            f"../../../rsc/{self.site}/{self.date}/"
             f"{self.version + '/' if self.version else ''}"
         )
 
@@ -130,12 +131,17 @@ class FRDCDataset(Dataset):
             for name, (path, transform) in config.items()
         }
 
-    @staticmethod
-    def imread(path: Path) -> np.ndarray:
+    def imread(self, path: Path) -> np.ndarray:
         """Reads an image from a path into a 3D numpy array. (H, W, C)"""
-        b = dvc.api.read(path=path.as_posix(), mode="rb")
+        b = self.read(path=path, mode="rb")
         ar = np.asarray(Image.open(io.BytesIO(b)))
         return np.expand_dims(ar, axis=-1) if ar.ndim == 2 else ar
+
+    def read(self, path: Path | str, mode: str = "r") -> Any:
+        """Reads an image from a path into a PIL Image"""
+        return dvc.api.read(
+            path=(self.dataset_dir / path).as_posix(), mode=mode
+        )
 
     def get_ar_bands(
         self, bands: Iterable[str] = BAND_CONFIG.keys()
@@ -181,31 +187,12 @@ class FRDCDataset(Dataset):
             A tuple of (bounds, labels), where bounds is a list of
             (x0, y0, x1, y1) and labels is a list of labels.
         """
-        fp = dvc.api.read(path=self.dataset_dir / file_name)
-        df = pd.read_csv(fp)
+        d = self.read(path=file_name)
+        df = pd.read_csv(StringIO(d))
         return (
             [Rect(i.x0, i.y0, i.x1, i.y1) for i in df.itertuples()],
             df["name"].tolist(),
         )
-
-    @staticmethod
-    def _load_image(path: Path | str) -> np.ndarray:
-        """Loads an Image from a path into a 3D numpy array. (H, W, C)
-
-        Notes:
-            If the image has only 1 channel, then it will be (H, W, 1) instead
-
-        Args:
-            path: Path to image. pathlib.Path is preferred, but str is also
-                accepted.
-
-        Returns:
-            3D Image as numpy array.
-        """
-
-        im = Image.open(Path(path).as_posix())
-        ar = np.asarray(im)
-        return np.expand_dims(ar, axis=-1) if ar.ndim == 2 else ar
 
 
 class FRDCConcatDataset(ConcatDataset):

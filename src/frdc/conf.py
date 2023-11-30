@@ -9,9 +9,9 @@ GCS_BUCKET_NAME = "frdc-scan"
 
 BAND_CONFIG = OrderedDict(
     {
-        "WB": ("*result.tif", lambda x: x[..., 2:3]),
-        "WG": ("*result.tif", lambda x: x[..., 1:2]),
-        "WR": ("*result.tif", lambda x: x[..., 0:1]),
+        "WB": ("result.tif", lambda x: x[..., 2:3]),
+        "WG": ("result.tif", lambda x: x[..., 1:2]),
+        "WR": ("result.tif", lambda x: x[..., 0:1]),
         "NB": ("result_Blue.tif", lambda x: x),
         "NG": ("result_Green.tif", lambda x: x),
         "NR": ("result_Red.tif", lambda x: x),
