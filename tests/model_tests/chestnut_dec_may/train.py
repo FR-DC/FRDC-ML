@@ -70,16 +70,22 @@ class InceptionV3Module(InceptionV3):
         x_scaler: StandardScaler,
         y_encoder: OrdinalEncoder,
     ):
+        """InceptionV3 Module.
+
+        Args:
+            n_out_classes: The number of output classes.
+            lr: The learning rate.
+            x_scaler: A scikit-learn StandardScaler to use for scaling the
+                input.
+            y_encoder: A scikit-learn OrdinalEncoder to use for encoding the
+                targets.
+        """
         self.lr = lr
         super().__init__(
             n_out_classes=n_out_classes,
             x_scaler=x_scaler,
             y_encoder=y_encoder,
         )
-
-    # TODO: PyTorch Lightning is complaining that I'm setting this in the
-    #       Module instead of DataModule, we can likely migrate this to
-    #       the ___step() functions.
 
     def configure_optimizers(self):
         optim = torch.optim.Adam(

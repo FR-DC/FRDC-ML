@@ -48,6 +48,9 @@ class FRDCModule(LightningModule):
         y_hat = self(x)
         return y, y_hat
 
+    # TODO: PyTorch Lightning is complaining that I'm setting this in the
+    #       Module instead of DataModule, we can likely migrate this to
+    #       the ___step() functions.
     @torch.no_grad()
     def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         x, y = batch
