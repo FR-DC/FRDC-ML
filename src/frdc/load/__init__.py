@@ -1,3 +1,3 @@
-from .dataset import FRDCDownloader, FRDCDataset
+from .dataset import FRDCDataset
 
-__all__ = ["FRDCDownloader", "FRDCDataset"]
+__all__ = ["FRDCDataset"]
