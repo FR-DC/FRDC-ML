@@ -20,7 +20,7 @@ from torchvision.transforms.v2 import (
     Resize,
 )
 
-from frdc.conf import BAND_CONFIG
+from frdc.conf import BAND_CONFIG, ROOT_DIR
 from frdc.preprocess.extract_segments import extract_segments_from_bounds
 from frdc.utils import Rect
 
@@ -89,10 +89,14 @@ class FRDCDataset(Dataset):
 
     @property
     def dataset_dir(self):
-        # TODO: Quite hacky, but unless someone moves the file, this should
-        #       work.
+        # This gets the number of "back" directories to go to get to the root
+        # E.g. ../../ is 2 "backs".
+        # DVC doesn't seem to support absolute paths,
+        # so we need to use relative
+        n_backs = len(Path(__file__).relative_to(ROOT_DIR).parts) - 1
+
         return Path(
-            f"../../../rsc/{self.site}/{self.date}/"
+            (f"../" * n_backs) + f"rsc/{self.site}/{self.date}/"
             f"{self.version + '/' if self.version else ''}"
         )
 
