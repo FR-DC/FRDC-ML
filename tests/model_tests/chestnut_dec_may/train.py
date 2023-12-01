@@ -107,7 +107,7 @@ def main():
     val_ds = FRDCDataset(
         "chestnut_nature_park",
         "20210510",
-        "90deg43m85pct255deg/map",
+        "90deg43m85pct255deg",
         transform=preprocess,
     )
 
