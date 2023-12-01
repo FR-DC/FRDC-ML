@@ -20,7 +20,7 @@ from torchvision.transforms.v2 import (
     Resize,
 )
 
-from frdc.conf import BAND_CONFIG, ROOT_DIR
+from frdc.conf import BAND_CONFIG, ROOT_DIR, LOCAL_DATASET_ROOT_DIR
 from frdc.preprocess.extract_segments import extract_segments_from_bounds
 from frdc.utils import Rect
 
@@ -89,11 +89,21 @@ class FRDCDataset(Dataset):
 
     @property
     def dataset_dir(self):
+        import sys
+
+        # sys.argv[0] is the path to the running script, not this file.
+        # This is important as DVC references that instead of this file.
+        # See Also: https://github.com/iterative/dvc/issues/8038
+        #           https://github.com/iterative/dvc/issues/8682
+        script_path = Path(sys.argv[0])
+
         # This gets the number of "back" directories to go to get to the root
         # E.g. ../../ is 2 "backs".
         # DVC doesn't seem to support absolute paths,
         # so we need to use relative
-        n_backs = len(Path(__file__).relative_to(ROOT_DIR).parts) - 1
+        n_backs = len(script_path.relative_to(ROOT_DIR).parts) - 1
+
+        assert n_backs >= 0, "The running script must be in the root directory"
 
         return Path(
             (f"../" * n_backs) + f"rsc/{self.site}/{self.date}/"
@@ -131,20 +141,27 @@ class FRDCDataset(Dataset):
             )
 
         return {
-            name: transform(self.imread(path=self.dataset_dir / path))
-            for name, (path, transform) in config.items()
+            name: transform(self.imread(relpath=relpath))
+            for name, (relpath, transform) in config.items()
         }
 
-    def imread(self, path: Path) -> np.ndarray:
+    def imread(self, relpath: Path) -> np.ndarray:
         """Reads an image from a path into a 3D numpy array. (H, W, C)"""
-        b = self.read(path=path, mode="rb")
+        b = self.read(relpath=relpath, mode="rb")
         ar = np.asarray(Image.open(io.BytesIO(b)))
         return np.expand_dims(ar, axis=-1) if ar.ndim == 2 else ar
 
-    def read(self, path: Path | str, mode: str = "r") -> Any:
-        """Reads an image from a path into a PIL Image"""
+    def read(self, relpath: Path | str, mode: str = "r") -> Any:
+        """Reads an image from a path into a PIL Image
+
+        Args:
+            relpath: The relative path to the image. This is scoped to the
+                dataset directory.
+            mode: The mode to open the file in, this is the same as the mode
+                in open().
+        """
         return dvc.api.read(
-            path=(self.dataset_dir / path).as_posix(), mode=mode
+            path=(self.dataset_dir / relpath).as_posix(), mode=mode
         )
 
     def get_ar_bands(
@@ -191,7 +208,7 @@ class FRDCDataset(Dataset):
             A tuple of (bounds, labels), where bounds is a list of
             (x0, y0, x1, y1) and labels is a list of labels.
         """
-        d = self.read(path=file_name)
+        d = self.read(relpath=file_name)
         df = pd.read_csv(StringIO(d))
         return (
             [Rect(i.x0, i.y0, i.x1, i.y1) for i in df.itertuples()],
