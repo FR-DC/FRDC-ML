@@ -35,8 +35,10 @@ from torchvision.transforms.v2 import RandomHorizontalFlip
 
 from frdc.load import FRDCDataset
 from frdc.load.dataset import FRDCUnlabelledDataset
-from frdc.models.inceptionv3 import InceptionV3MixMatchModule
+from frdc.models.inceptionv3_facenet import InceptionV3FacenetModule
 from frdc.train.frdc_datamodule import FRDCDataModule
+
+from src.frdc.utils.triplet_loss import adapted_triplet_loss
 
 THIS_DIR = Path(__file__).parent
 
@@ -85,7 +87,7 @@ def evaluate(ckpt_pth: Path | str | None = None) -> tuple[plt.Figure, float]:
             THIS_DIR.glob("**/*.ckpt"), key=lambda x: x.stat().st_mtime_ns
         )[-1]
 
-    m = InceptionV3MixMatchModule.load_from_checkpoint(ckpt_pth)
+    m = InceptionV3FacenetModule.load_from_checkpoint(ckpt_pth)
     # Make predictions
     trainer = pl.Trainer(logger=False)
     pred = trainer.predict(m, dataloaders=DataLoader(ds, batch_size=32))
@@ -125,8 +127,8 @@ def preprocess(x):
             ToDtype(torch.float32, scale=True),
             CenterCrop(
                 [
-                    InceptionV3MixMatchModule.MIN_SIZE,
-                    InceptionV3MixMatchModule.MIN_SIZE,
+                    InceptionV3FacenetModule.MIN_SIZE,
+                    InceptionV3FacenetModule.MIN_SIZE,
                 ],
             ),
         ]
@@ -140,8 +142,8 @@ def train_preprocess(x):
             ToDtype(torch.float32, scale=True),
             RandomCrop(
                 [
-                    InceptionV3MixMatchModule.MIN_SIZE,
-                    InceptionV3MixMatchModule.MIN_SIZE,
+                    InceptionV3FacenetModule.MIN_SIZE,
+                    InceptionV3FacenetModule.MIN_SIZE,
                 ],
                 pad_if_needed=True,
                 padding_mode="constant",
@@ -164,11 +166,16 @@ def train_unl_preprocess(n_aug: int = 2):
 
 
 def main(
-    batch_size=32,
+    embedding_size=128,
+    margin=0.5,
+    loss=adapted_triplet_loss,
+    squared=False,
+    lr_gamma=0.96,
+    batch_size=24,
     epochs=10,
     train_iters=25,
     val_iters=15,
-    lr=1e-3,
+    lr=5e-4,
 ):
     run = wandb.init()
     logger = WandbLogger(name="chestnut_dec_may", project="frdc")
@@ -235,10 +242,14 @@ def main(
         ],
         logger=logger,
     )
-    m = InceptionV3MixMatchModule(
-        n_classes=n_classes,
+    m = InceptionV3FacenetModule(
+        embedding_size=embedding_size,
+        margin=margin,
+        squared=squared,
         lr=lr,
-        x_scaler=ss,
+        lr_gamma=lr_gamma,
+        loss=loss,
+        #x_scaler=ss,
         y_encoder=oe,
     )
 
