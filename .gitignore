@@ -166,7 +166,6 @@ rsc/**/*.tif
 
 **/*/lightning_logs
 *.zip
-*.sh
 *.ckpt
 /rsc
 **/wandb/

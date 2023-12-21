@@ -9,7 +9,6 @@ from pathlib import Path
 
 import lightning as pl
 import numpy as np
-import torch
 import wandb
 from lightning.pytorch.callbacks import (
     LearningRateMonitor,
@@ -17,21 +16,7 @@ from lightning.pytorch.callbacks import (
     EarlyStopping,
 )
 from lightning.pytorch.loggers import WandbLogger
-from matplotlib import pyplot as plt
-from seaborn import heatmap
-from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
-from torch.utils.data import DataLoader
-from torchvision.transforms import RandomVerticalFlip
-from torchvision.transforms.v2 import (
-    Compose,
-    ToImage,
-    ToDtype,
-    RandomVerticalFlip,
-    RandomCrop,
-    CenterCrop,
-)
-from torchvision.transforms.v2 import RandomHorizontalFlip
 
 from frdc.load import FRDCDataset
 from frdc.load.dataset import FRDCUnlabelledDataset
@@ -200,7 +185,7 @@ def main(
     val_ds = FRDCDataset(
         "chestnut_nature_park",
         "20210510",
-        "90deg43m85pct255deg/map",
+        "90deg43m85pct255deg",
         transform=preprocess,
     )
 
@@ -257,11 +242,19 @@ def main(
 
     with open(Path(__file__).parent / "report.md", "w") as f:
         f.write(
-            f"# Chestnut Nature Park (Dec 2020 vs May 2021)"
-            f"[WandB Report]({run.get_url()})"
+            f"# Chestnut Nature Park (Dec 2020 vs May 2021)\n"
+            f"- Results: [WandB Report]({run.get_url()})"
         )
 
-    fig, acc = evaluate(Path(ckpt.best_model_path))
+    fig, acc = evaluate(
+        ds=FRDCDatasetFlipped(
+            "chestnut_nature_park",
+            "20210510",
+            "90deg43m85pct255deg",
+            transform=preprocess,
+        ),
+        ckpt_pth=Path(ckpt.best_model_path),
+    )
     wandb.log({"confusion_matrix": wandb.Image(fig)})
     wandb.log({"eval_accuracy": acc})
 
@@ -274,7 +267,6 @@ if __name__ == "__main__":
     TRAIN_ITERS = 25
     VAL_ITERS = 15
     LR = 1e-3
-    os.environ["GOOGLE_CLOUD_PROJECT"] = "frmodel"
 
     assert wandb.run is None
     wandb.setup(wandb.Settings(program=__name__, program_relpath=__name__))

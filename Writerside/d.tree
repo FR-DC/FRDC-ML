@@ -12,11 +12,16 @@
     <toc-element toc-title="Tutorials">
         <toc-element topic="Retrieve-our-Datasets.md"/>
     </toc-element>
+    <toc-element topic="mix-match.md">
+        <toc-element topic="mix-match-module.md"/>
+        <toc-element topic="custom-k-aug-dataloaders.md"/>
+    </toc-element>
     <toc-element toc-title="Model Tests">
         <toc-element topic="Model-Test-Chestnut-May-Dec.md"/>
     </toc-element>
     <toc-element toc-title="API">
         <toc-element topic="load.dataset.md"/>
+        <toc-element topic="load.gcs.md"/>
         <toc-element topic="preprocessing.scale.md"/>
         <toc-element topic="preprocessing.extract_segments.md"/>
         <toc-element topic="preprocessing.morphology.md"/>

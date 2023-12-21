@@ -35,7 +35,7 @@ interface to train and evaluate models.
 <list>
 <li><code>segments</code>, <code>labels</code> are retrieved from
 <list>
-<li><a href="load.dataset.md" anchor="frdcdataset">FRDCDataset</a></li>
+<li><a href="load.dataset.md">FRDCDataset</a></li>
 <li><a href="preprocessing.extract_segments.md">Segmentation</a></li>
 </list>
 </li>

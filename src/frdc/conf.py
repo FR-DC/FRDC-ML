@@ -1,11 +1,25 @@
+import logging
+import os
 from collections import OrderedDict
 from pathlib import Path
 
+import label_studio_sdk as label_studio
+import requests
+from google.cloud import storage as gcs
+
+logger = logging.getLogger(__name__)
+
 ROOT_DIR = Path(__file__).parents[2]
 LOCAL_DATASET_ROOT_DIR = ROOT_DIR / "rsc"
-SECRETS_DIR = ROOT_DIR / ".secrets"
+os.environ["GOOGLE_CLOUD_PROJECT"] = "frmodel"
 GCS_PROJECT_ID = "frmodel"
-GCS_BUCKET_NAME = "frdc-scan"
+GCS_BUCKET_NAME = "frdc-ds"
+GCS_CREDENTIALS = None
+LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST", "localhost")
+LABEL_STUDIO_URL = f"http://{LABEL_STUDIO_HOST}:8080"
+
+if not (LABEL_STUDIO_API_KEY := os.environ.get("LABEL_STUDIO_API_KEY", None)):
+    logger.warning("LABEL_STUDIO_API_KEY not set")
 
 BAND_CONFIG = OrderedDict(
     {
@@ -30,3 +44,33 @@ BAND_MAX_CONFIG: dict[str, tuple[int, int]] = {
     "RE": (0, 2**14),
     "NIR": (0, 2**14),
 }
+
+try:
+    logger.info("Connecting to GCS...")
+    GCS_CLIENT = gcs.Client(
+        project=GCS_PROJECT_ID,
+        credentials=GCS_CREDENTIALS,
+    )
+    GCS_BUCKET = GCS_CLIENT.bucket(GCS_BUCKET_NAME)
+    logger.info("Connected to GCS.")
+except Exception as e:
+    logger.warning(
+        "Could not connect to GCS. Will not be able to download files. "
+        "GCS_CLIENT will be None."
+    )
+    GCS_CLIENT = None
+
+try:
+    logger.info("Connecting to Label Studio...")
+    requests.get(LABEL_STUDIO_URL)
+    LABEL_STUDIO_CLIENT = label_studio.Client(
+        url=LABEL_STUDIO_URL,
+        api_key=LABEL_STUDIO_API_KEY,
+    )
+    logger.info("Connected to Label Studio.")
+except requests.exceptions.ConnectionError:
+    logger.warning(
+        f"Could not connect to Label Studio at {LABEL_STUDIO_URL}. "
+        f"LABEL_STUDIO_CLIENT will be None."
+    )
+    LABEL_STUDIO_CLIENT = None

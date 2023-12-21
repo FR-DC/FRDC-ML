@@ -1,12 +1,7 @@
 import numpy as np
 import pytest
 
-from frdc.load import FRDCDownloader, FRDCDataset
-
-
-@pytest.fixture(scope="session")
-def dl() -> FRDCDownloader:
-    return FRDCDownloader()
+from frdc.load import FRDCDataset
 
 
 @pytest.fixture(scope="session")

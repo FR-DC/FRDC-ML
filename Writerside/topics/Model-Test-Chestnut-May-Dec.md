@@ -3,7 +3,7 @@
 This test is used to evaluate the model performance on the Chestnut Nature Park
 May & December dataset.
 
-See this script in <code>pipeline/model_tests/chestnut_dec_may/main.py</code>.
+See this script in <code>model_tests/chestnut_dec_may/train.py</code>.
 
 ## Motivation
 
@@ -17,15 +17,17 @@ perform in different conditions.
 
 ## Methodology
 
-We simply train on the December dataset, and test on the May dataset.
+We train on the December dataset, and test on the May dataset.
 
 ```mermaid
 graph LR
-    Model -- Train --> DecDataset
+    DecDataset -- Labelled Train --> Model
+    DecDataset -- Unlabelled Train --> Model
     Model -- Test --> MayDataset
 ```
 
-> The inverse of this test is also plausible.
+Despite not having any true unlabelled data, we use [MixMatch](mix-match.md) 
+by treating the labelled data of the December dataset as unlabelled data.
 
 > Ideally, we should have a Validation set to tune the hyperparameters, but
 > given the limitations of the dataset, we'll skip this step.
@@ -42,7 +44,7 @@ graph LR
     InceptionV3[InceptionV3 Frozen] --> FC["FC Layer(s)"]
     FC --> Softmax
     Softmax --> Output
-    Input -- Cross Entropy Loss --> Output
+    Input -- SSL Loss --> Output
 ```
 
 > We didn't find significant evidence of improvements of using a more complex
@@ -50,30 +52,35 @@ graph LR
 
 ## Preprocessing
 
-We perform the following steps:
-
+For Training:
 ```mermaid
-graph v
-    Segment --> Scale[Scale Values to 0-1]
-    Scale --> GLCM[GLCM Step 7, Rad 3, Bin 128, Mean Feature]
-    GLCM --> ScaleNorm[Scale Values to 0 Mean 1 Var]
-    ScaleNorm --> Resize[Resize to 299x299]
+graph LR
+    A[Segment] --> B[RandomCrop 299]
+    B --> C[Horizontal Flip 50%]
+    C --> D[Vertical Flip 50%]
+    D --> E[Normalize By Training Mean & Std]
 ```
 
-> We need to scale to 0-1 before GLCM, so that GLCM can bin the values
-> correctly.
-
-### Augmentation
-
-The following augmentations are used:
-
+For Validation:
 ```mermaid
-graph >
-    Segment --> HFLip[Horizontal Flip 50%]
-    HFLip --> VFLip[Vertical Flip 50%]
+graph LR
+    A[Segment] --> B[CenterCrop 299]
+    B --> C[Normalize By Training Mean & Std]
 ```
 
-> This only operates on training data.
+For Evaluation:
+```mermaid
+graph LR
+    A[Segment] --> B[CenterCrop 299]
+    B --> C[Normalize By Training Mean & Std]
+    C --> D[As Is]
+    C --> E[Horizontal Flip]
+    C --> F[Vertical Flip]
+    C --> G[Horizontal & Vertical Flip]
+```
+
+For evaluation, we evaluate that the model should be invariant to horizontal
+and vertical flips, as well as the original image.
 
 ## Hyperparameters
 
@@ -81,27 +88,20 @@ The following hyperparameters are used:
 
 - Optimizer: Adam
 - Learning Rate: 1e-3
-- Batch Size: 5
-- Epochs: 100
+- Batch Size: 32
+- Epochs: 10
+- Train Iterations: 25~100
+- Validation Iterations: 10~25
 - Early Stopping: 4
 
 ## Results
 
-We yield around 40% accuracy on the test set, compared to around 65% for the
-training set. Raising the training accuracy with a more complex model may
-improve the test accuracy, however, due to instability of our test
-results, we can't be sure of this.
+We evaluate around 40% accuracy on the test set, compared to 100% for the
+training set. This indicates that the model has saturated and is not able to
+learn anymore from the training set. There's no indication of overfitting as
+the validation loss just plateaus.
 
-### Result Images {collapsible="true"}
-
-<tabs>
-<tab title="Training Graph">
-<img src="graph-chestnut-maydec.png" alt="graph-chestnut-maydec.png" />
-</tab>
-<tab title="Confusion Matrix">
-<img src="cm-chestnut-maydec.png" alt="cm-chestnut-maydec.png" />
-</tab>
-</tabs>
+[W&B Dashboard](https://wandb.ai/frdc/FRDC-ML-tests_model_tests_chestnut_dec_may)
 
 ### Caveats
 

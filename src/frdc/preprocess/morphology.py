@@ -1,4 +1,4 @@
-import warnings
+import logging
 
 import numpy as np
 from scipy import ndimage
@@ -6,6 +6,8 @@ from scipy.ndimage import distance_transform_edt
 from skimage.feature import peak_local_max
 from skimage.morphology import remove_small_objects, remove_small_holes
 from skimage.segmentation import watershed
+
+logger = logging.getLogger(__name__)
 
 
 def compute_labels(
@@ -38,7 +40,7 @@ def compute_labels(
         Crowns is a list[np.ndarray] crowns, each of shape (H, W, C).
     """
     # Raise deprecation warning
-    warnings.warn(
+    logger.warning(
         "This function is to be deprecated. use functions separately instead "
         "for more control over the parameters. This function assumes the NIR "
         "band is the last band.",

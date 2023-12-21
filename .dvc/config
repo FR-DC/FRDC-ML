@@ -1,6 +1,0 @@
-[core]
-    remote = frdc-ds
-    autostage = true
-['remote "frdc-ds"']
-    url = gs://frdc-ds/
-    version_aware = true

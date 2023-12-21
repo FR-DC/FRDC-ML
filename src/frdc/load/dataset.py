@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import base64
-import hashlib
 import logging
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Callable, Any
 
@@ -12,147 +10,21 @@ import numpy as np
 import pandas as pd
 import torch
 from PIL import Image
-from google.cloud import storage
-from google.oauth2.service_account import Credentials
 from torch.utils.data import Dataset, ConcatDataset
-from torchvision.transforms.v2 import (
-    Compose,
-    ToImage,
-    ToDtype,
-    Resize,
-)
 
 from frdc.conf import (
-    LOCAL_DATASET_ROOT_DIR,
-    GCS_PROJECT_ID,
-    GCS_BUCKET_NAME,
     BAND_CONFIG,
+    LABEL_STUDIO_CLIENT,
 )
-from frdc.preprocess.extract_segments import extract_segments_from_bounds
+from frdc.load.gcs import download
+from frdc.load.label_studio import get_task
+from frdc.preprocess.extract_segments import (
+    extract_segments_from_bounds,
+    extract_segments_from_polybounds,
+)
 from frdc.utils import Rect
 
-
-@dataclass
-class FRDCDownloader:
-    credentials: Credentials = None
-    local_dataset_root_dir: Path = LOCAL_DATASET_ROOT_DIR
-    project_id: str = GCS_PROJECT_ID
-    bucket_name: str = GCS_BUCKET_NAME
-    bucket: storage.Bucket = field(init=False)
-
-    def __post_init__(self):
-        """Initializes the GCS bucket."""
-        # If credentials is None, then use the default credentials.
-        # Default credentials are set by the environment variable
-        # GOOGLE_APPLICATION_CREDENTIALS, see ADC documentation:
-        client = storage.Client(
-            project=self.project_id, credentials=self.credentials
-        )
-        self.bucket = client.bucket(self.bucket_name)
-
-    def list_gcs_datasets(self, anchor="result_Red.tif") -> pd.DataFrame:
-        """Lists all datasets from Google Cloud Storage.
-
-        Args:
-            anchor: The anchor file to find the dataset.
-                    This is used to find the dataset. For example, if we want
-                    to find the dataset for
-                    "chestnut_nature_park/20201218/183deg/result_Red.tif",
-                    then we can use "result_Red.tif" as the anchor file.
-
-        Returns:
-            An iterator of all blobs that match the anchor file.
-        """
-
-        # The anchor file to find the dataset
-        # E.g. "result_Red.tif"
-        df = (
-            # The list of all blobs in the bucket that contains the anchor file
-            # E.g. "chestnut_nature_park/20201218/183deg/result_Red.tif"
-            pd.Series(
-                [
-                    blob.name
-                    for blob in self.bucket.list_blobs(
-                        match_glob=f"**/{anchor}"
-                    )
-                ]
-            )
-            # Remove the anchor file name
-            # E.g. "chestnut_nature_park/20201218/183deg"
-            .str.replace(f"/{anchor}", "")
-            .rename("dataset_dir")
-            .drop_duplicates()
-        )
-
-        return df
-
-    def download_file(
-        self, *, path_glob: Path | str, local_exists_ok: bool = True
-    ) -> Path:
-        """Downloads a file from Google Cloud Storage. If the file already
-            exists locally, and the hashes match, it will not download the file
-
-        Args:
-            path_glob: Path Glob to the file in GCS. This must only match one
-                file.
-            local_exists_ok: If True, will not raise an error if the file
-                already exists locally and the hashes match.
-
-        Examples:
-            If our file in GCS is in
-            gs://frdc-scan/casuarina/20220418/183deg/result_Blue.tif
-            then we can download it with:
-
-            >>> download_file(
-            >>>     path=Path("casuarina/20220418/183deg/result_Blue.tif")
-            >>> )
-
-        Raises:
-            ValueError: If there are multiple blobs that match the path_glob.
-            FileNotFoundError: If the file does not exist in GCS.
-            FileExistsError: If the file already exists locally and the hashes
-                match.
-
-        Returns:
-            The local path to the downloaded file.
-        """
-
-        # Check if there are multiple blobs that match the path_glob
-        gcs_blobs = list(
-            self.bucket.list_blobs(match_glob=Path(path_glob).as_posix())
-        )
-
-        if len(gcs_blobs) > 1:
-            raise ValueError(
-                f"Multiple blobs found for {path_glob}: {gcs_blobs}"
-            )
-        elif len(gcs_blobs) == 0:
-            raise FileNotFoundError(f"No blobs found for {path_glob}")
-
-        # Get the local path and the GCS blob
-        gcs_blob = gcs_blobs[0]
-        local_path = self.local_dataset_root_dir / gcs_blob.name
-
-        # If locally exists & hashes match, return False
-        if local_path.exists():
-            gcs_blob.reload()  # Necessary to get the md5_hash
-            gcs_hash = base64.b64decode(gcs_blob.md5_hash).hex()
-            local_hash = hashlib.md5(open(local_path, "rb").read()).hexdigest()
-            logging.debug(f"Local hash: {local_hash}, GCS hash: {gcs_hash}")
-            if gcs_hash == local_hash:
-                if local_exists_ok:
-                    # If local_exists_ok, then don't raise
-                    return local_path
-                else:
-                    raise FileExistsError(
-                        f"{local_path} already exists and hashes match."
-                    )
-
-        # Else, download
-        logging.info(f"Downloading {gcs_blob.name} to {local_path}...")
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        gcs_blob.download_to_filename(local_path.as_posix())
-        return local_path
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -164,6 +36,7 @@ class FRDCDataset(Dataset):
         version: str | None,
         transform: Callable[[list[np.ndarray]], Any] = None,
         target_transform: Callable[[list[str]], list[str]] = None,
+        use_legacy_bounds: bool = False,
     ):
         """Initializes the FRDC Dataset.
 
@@ -171,16 +44,29 @@ class FRDCDataset(Dataset):
             site: The site of the dataset, e.g. "chestnut_nature_park".
             date: The date of the dataset, e.g. "20201218".
             version: The version of the dataset, e.g. "183deg".
+            transform: The transform to apply to each segment.
+            target_transform: The transform to apply to each label.
+            use_legacy_bounds: Whether to use the legacy bounds.csv file.
         """
         self.site = site
         self.date = date
         self.version = version
 
-        self.dl = FRDCDownloader()
-
         self.ar, self.order = self.get_ar_bands()
-        bounds, self.targets = self.get_bounds_and_labels()
-        self.ar_segments = extract_segments_from_bounds(self.ar, bounds)
+
+        if use_legacy_bounds or (LABEL_STUDIO_CLIENT is None):
+            logger.warning(
+                "Using legacy bounds.csv file for dataset."
+                "This is pending to be deprecated in favour of pulling "
+                "annotations from Label Studio."
+            )
+            bounds, self.targets = self.get_bounds_and_labels()
+            self.ar_segments = extract_segments_from_bounds(self.ar, bounds)
+        else:
+            bounds, self.targets = self.get_polybounds_and_labels()
+            self.ar_segments = extract_segments_from_polybounds(
+                self.ar, bounds, cropped=True, polycropped=False
+            )
         self.transform = transform
         self.target_transform = target_transform
 
@@ -205,6 +91,13 @@ class FRDCDataset(Dataset):
             A dictionary of the dataset, with keys as the filenames and values
             as the images.
         """
+        from torchvision.transforms.v2 import (
+            Compose,
+            ToImage,
+            ToDtype,
+            Resize,
+        )
+
         return FRDCDataset(
             site="DEBUG",
             date="0",
@@ -227,7 +120,8 @@ class FRDCDataset(Dataset):
         )
 
     def get_ar_bands_as_dict(
-        self, bands: Iterable[str] = BAND_CONFIG.keys()
+        self,
+        bands: Iterable[str] = BAND_CONFIG.keys(),
     ) -> dict[str, np.ndarray]:
         """Gets the bands from the dataset as a dictionary of (name, image)
 
@@ -260,7 +154,7 @@ class FRDCDataset(Dataset):
             )
 
         for name, (glob, transform) in config.items():
-            fp = self.dl.download_file(path_glob=self.dataset_dir / glob)
+            fp = download(fp=self.dataset_dir / glob)
 
             # We may use the same file multiple times, so we cache it
             if fp in fp_cache:
@@ -304,7 +198,8 @@ class FRDCDataset(Dataset):
         return np.concatenate(list(d.values()), axis=-1), list(d.keys())
 
     def get_bounds_and_labels(
-        self, file_name="bounds.csv"
+        self,
+        file_name="bounds.csv",
     ) -> tuple[list[Rect], list[str]]:
         """Gets the bounds and labels from the bounds.csv file.
 
@@ -320,12 +215,17 @@ class FRDCDataset(Dataset):
             A tuple of (bounds, labels), where bounds is a list of
             (x0, y0, x1, y1) and labels is a list of labels.
         """
-        fp = self.dl.download_file(path_glob=self.dataset_dir / file_name)
+        fp = download(fp=self.dataset_dir / file_name)
         df = pd.read_csv(fp)
         return (
             [Rect(i.x0, i.y0, i.x1, i.y1) for i in df.itertuples()],
             df["name"].tolist(),
         )
+
+    def get_polybounds_and_labels(self):
+        return get_task(
+            Path(f"{self.dataset_dir}/result.jpg")
+        ).get_bounds_and_labels()
 
     @staticmethod
     def _load_image(path: Path | str) -> np.ndarray:

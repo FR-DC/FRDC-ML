@@ -13,12 +13,22 @@ Assumes shape H x W x C, where C is the number of bands.
 <deflist type="medium">
 <def title="scale_0_1_per_band">
 <b>Scales the NDArray bands to [0, 1] per band.</b>
+<code-block lang="tex">
+(x - \min(x)) / (\max(x) - \min(x))
+</code-block>
 </def>
 <def title="scale_normal_per_band">
 <b>Scales the NDArray bands to zero mean unit variance per band.</b>
+<code-block lang="tex">
+(x - \mu) / \sigma
+</code-block>
 </def>
 <def title="scale_static_per_band">
 <b>Scales the NDArray bands by a predefined configuration.</b>
+Take a look at <code>frdc.conf.BAND_MAX_CONFIG</code> for an example.
+<code-block lang="tex">
+(x - c_0) / (c_1 - c_0)
+</code-block>
 </def>
 </deflist>
 
@@ -42,29 +52,3 @@ ar_static = scale_static_per_band(ar, order, BAND_MAX_CONFIG)
 
 > The static scaling has a default config, which was inferred by our capturing
 > device.
-
-## API
-
-<deflist>
-<def title="scale_0_1_per_band(ar)">
-<b>Scales the NDArray bands to [0, 1] per band.</b><br/>
-<code-block lang="tex">
-(x - \min(x)) / (\max(x) - \min(x))
-</code-block>
-</def>
-<def title="scale_normal_per_band(ar)">
-<b>Scales the NDArray bands to zero mean unit variance per band.</b><br/>
-<code-block lang="tex">
-(x - \mu) / \sigma
-</code-block>
-</def>
-<def title="scale_static_per_band(ar, order, config)">
-<b>Scales the NDArray bands by a predefined configuration.</b><br/>
-The <code>config</code> is of <code>dict[str, tuple[int, int]]</code> where
-the key is the band name, and the value is a tuple of <code>(min, max)</code>.
-Take a look at <code>frdc.conf.BAND_MAX_CONFIG</code> for an example.
-<code-block lang="tex">
-(x - c_0) / (c_1 - c_0)
-</code-block>
-</def>
-</deflist>

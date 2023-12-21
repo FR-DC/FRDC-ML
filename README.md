@@ -5,11 +5,21 @@
 This repository contains all code regarding our models used.
 This is part of the entire E2E pipeline for our product.
 
-_Data Collection -> **FRDC-ML** -> [FRDC-UI](https://github.com/Forest-Recovery-Digital-Companion/FRDC-UI)_
+```mermaid
+graph LR
+    A[Data Collection] --> B[FRDC-ML] --> C[FRDC-UI]
+```
 
 Currently, it's heavily WIP.
 
-# Dev Info
+## Getting Started
+
+I highly recommend reading our [website documentation](
+https://fr-dc.github.io/FRDC-ML/getting-started.html
+). There contains tutorials and docs on how to use our modules.
+
+
+## Dev Info
 
 ```
 FRDC-ML/
@@ -23,6 +33,7 @@ FRDC-ML/
         main.py             # Pipeline Entry Point
 
     tests/                  # PyTest Tests
+        model-tests/        # Tests for each model
         integration-tests/  # Tests that run the entire pipeline
         unit-tests/         # Tests for each component
 
@@ -34,44 +45,29 @@ FRDC-ML/
 
 ## Our Architecture
 
-This is a classic, simple Python Package architecture, however, we **HEAVILY EMPHASIZE** encapsulation of each stage.
-That means, there should never be data that **IMPLICITLY** persists across stages. We enforce this by our
-`src/main.py` entrypoint.
+This is a classic, simple Python Package architecture, however, we 
+**HEAVILY EMPHASIZE** encapsulation of each stage.
+That means, there should never be data that **IMPLICITLY** persists across
+stages.
 
-Each function should have a high-level, preferably intuitively english naming convention.
+To illustrate this, take a look at how 
+`tests/model_tests/chestnut_dec_may/train.py` is written. It pulls in relevant
+modules from each stage and constructs a pipeline.
 
-```python
-from torch.optim import Adam
 
-from frdc.load.dataset import FRDCDataset
-from frdc.preprocess.morphology import remove_small_objects
-from frdc.preprocess.morphology import watershed
-from frdc.train import train
-
-ar = FRDCDataset("chestnut", "date", ...)
-ar = watershed(ar)
-ar = remove_small_objects(ar, min_size=100)
-model = train(ar, lr=0.01, optimizer=Adam, )
-...
-```
-
-This architecture allows for
-
-1) Easily legible high level pipelines
-2) Flexibility
-    1) Conventional Python signatures can be used to input arguments
-    2) If necessary we can leverage everything else Python
-3) Easily replicable pipelines
-
-> Initially, we evaluated a few ML E2E solutions, despite them offering great functionality, their flexibility was
-> limited. From a dev perspective, **Active Learning** was a gray area, and we foresee heavy shoehorning.
-> Ultimately, we decided that the risk was too great, thus we resort to creating our own solution.
+> Initially, we evaluated a few ML E2E solutions, despite them offering great
+> functionality, their flexibility was
+> limited. From a dev perspective, **Active Learning** was a gray area, and we
+> foresee heavy shoehorning.
+> Ultimately, we decided that the risk was too great, thus we resort to
+> creating our own solution.
 
 ## Contributing
 
 ### Pre-commit Hooks
 
-We use Black and Flake8 as our pre-commit hooks. To install them, run the following commands:
+We use Black and Flake8 as our pre-commit hooks. To install them, run the
+following commands:
 
 ```bash
 poetry install
