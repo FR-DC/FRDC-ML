@@ -35,7 +35,7 @@ class InceptionV3FacenetModule(LightningModule):
         self.margin = margin
         self.squared = squared
         self.lr = lr
-        self.gamma = lr_gamma
+        self.lr_gamma = lr_gamma
         self.loss = loss
         self.y_encoder = y_encoder
 
@@ -109,13 +109,22 @@ class InceptionV3FacenetModule(LightningModule):
         return x
 
     def configure_optimizers(self):
-        return torch.optim.lr_scheduler.ExponentialLR(
-            torch.optim.Adam(
+        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                optimiser := torch.optim.Adam(
                 self.parameters(),
                 lr=self.lr,
             ),
             gamma=self.lr_gamma,
         )
+        lr_scheduler_config = {
+            "optimizer": optimiser,
+            "lr_scheduler": {
+                "scheduler": lr_scheduler,
+                "interval": "epoch",
+                "frequency": 1,
+            }
+        }
+        return lr_scheduler_config
 
     def training_step(self, batch, batch_idx):
         images, labels = batch

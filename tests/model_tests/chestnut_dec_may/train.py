@@ -1,5 +1,6 @@
 """ Tests for the InceptionV3 model on the Chestnut Nature Park dataset.
 
+
 This test is done by training a model on the 20201218 dataset, then testing on
 the 20210510 dataset.
 """
@@ -17,6 +18,7 @@ from lightning.pytorch.callbacks import (
 )
 from lightning.pytorch.loggers import WandbLogger
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+import matplotlib.pyplot as plt
 
 from frdc.load import FRDCDataset
 from frdc.load.dataset import FRDCUnlabelledDataset
@@ -24,6 +26,10 @@ from frdc.models.inceptionv3_facenet import InceptionV3FacenetModule
 from frdc.train.frdc_datamodule import FRDCDataModule
 
 from src.frdc.utils.triplet_loss import adapted_triplet_loss
+
+from torchvision.transforms.v2 import Compose, RandomHorizontalFlip, RandomVerticalFlip, RandomCrop, ToImage, ToDtype, CenterCrop
+
+import torch
 
 THIS_DIR = Path(__file__).parent
 
@@ -58,7 +64,7 @@ class FRDCDatasetFlipped(FRDCDataset):
             return RandomHorizontalFlip(p=1)(RandomVerticalFlip(p=1)(x)), y
 
 
-def evaluate(ckpt_pth: Path | str | None = None) -> tuple[plt.Figure, float]:
+def evaluate_old(ckpt_pth: Path | str | None = None) -> tuple[plt.Figure, float]:
     ds = FRDCDatasetFlipped(
         "chestnut_nature_park",
         "20210510",
@@ -104,6 +110,27 @@ def evaluate(ckpt_pth: Path | str | None = None) -> tuple[plt.Figure, float]:
     plt.ylabel("True Label")
     return plt.gcf(), acc
 
+def evaluate_old(ckpt_pth: Path | str | None = None) -> tuple[plt.Figure, float]:
+    ds = FRDCDatasetFlipped(
+        "chestnut_nature_park",
+        "20210510",
+        "90deg43m85pct255deg/map",
+        transform=preprocess,
+    )
+
+    if ckpt_pth is None:
+        # This fetches all possible checkpoints and gets the latest one
+        ckpt_pth = sorted(
+            THIS_DIR.glob("**/*.ckpt"), key=lambda x: x.stat().st_mtime_ns
+        )[-1]
+
+    m = InceptionV3FacenetModule.load_from_checkpoint(ckpt_pth)
+
+    # Judge triplet loss on test data
+    trainer = pl.Trainer(logger=False)
+    acc = trainer.validate(m, dataloaders=DataLoader(ds, batch_size=32))
+
+    return acc
 
 def preprocess(x):
     return Compose(
@@ -162,8 +189,11 @@ def main(
     val_iters=15,
     lr=5e-4,
 ):
+    print("Wandb init")
     run = wandb.init()
     logger = WandbLogger(name="chestnut_dec_may", project="frdc")
+
+    print("Train DS init")
     # Prepare the dataset
     train_lab_ds = FRDCDataset(
         "chestnut_nature_park",
@@ -172,6 +202,8 @@ def main(
         transform=train_preprocess,
     )
 
+    """
+    print("Train UL DS init")
     # TODO: This is a hacky impl of the unlabelled dataset, see the docstring
     #       for future work.
     train_unl_ds = FRDCUnlabelledDataset(
@@ -180,7 +212,9 @@ def main(
         None,
         transform=train_unl_preprocess(2),
     )
+    """
 
+    print("Val DS init")
     # Subset(train_ds, np.argwhere(train_ds.targets == 0).reshape(-1))
     val_ds = FRDCDataset(
         "chestnut_nature_park",
@@ -189,6 +223,7 @@ def main(
         transform=preprocess,
     )
 
+    print("OE init")
     oe = OrdinalEncoder(
         handle_unknown="use_encoded_value",
         unknown_value=np.nan,
@@ -196,20 +231,23 @@ def main(
     oe.fit(np.array(train_lab_ds.targets).reshape(-1, 1))
     n_classes = len(oe.categories_[0])
 
+    print("SS init")
     ss = StandardScaler()
     ss.fit(train_lab_ds.ar.reshape(-1, train_lab_ds.ar.shape[-1]))
 
+    print("DM init")
     # Prepare the datamodule and trainer
     dm = FRDCDataModule(
         train_lab_ds=train_lab_ds,
         # Pass in None to use the default supervised DM
-        train_unl_ds=train_unl_ds,
+        train_unl_ds=None,#train_unl_ds,
         val_ds=val_ds,
         batch_size=batch_size,
         train_iters=train_iters,
         val_iters=val_iters,
     )
 
+    print("Trainer init")
     trainer = pl.Trainer(
         max_epochs=epochs,
         deterministic=True,
@@ -227,6 +265,9 @@ def main(
         ],
         logger=logger,
     )
+
+
+    print("Model init")
     m = InceptionV3FacenetModule(
         embedding_size=embedding_size,
         margin=margin,
@@ -238,14 +279,18 @@ def main(
         y_encoder=oe,
     )
 
+    print("Trainer.fit(m, datamodule=dm)")
     trainer.fit(m, datamodule=dm)
 
+    print("Writing report.md")
     with open(Path(__file__).parent / "report.md", "w") as f:
         f.write(
             f"# Chestnut Nature Park (Dec 2020 vs May 2021)\n"
             f"- Results: [WandB Report]({run.get_url()})"
         )
 
+    print("fig, acc = evaluate(...)")
+    """
     fig, acc = evaluate(
         ds=FRDCDatasetFlipped(
             "chestnut_nature_park",
@@ -255,8 +300,21 @@ def main(
         ),
         ckpt_pth=Path(ckpt.best_model_path),
     )
-    wandb.log({"confusion_matrix": wandb.Image(fig)})
-    wandb.log({"eval_accuracy": acc})
+    """
+    acc = evaluate(
+        ds=FRDCDatasetFlipped(
+            "chestnut_nature_park",
+            "20210510",
+            "90deg43m85pct255deg",
+            transform=preprocess,
+        ),
+        ckpt_pth=Path(ckpt.best_model_path),
+    )
+
+    print("Log to wandb")
+    #wandb.log({"confusion_matrix": wandb.Image(fig)})
+    #wandb.log({"eval_accuracy": acc})
+    wandb.log({"eval_triplet_loss": acc})
 
     wandb.finish()
 
