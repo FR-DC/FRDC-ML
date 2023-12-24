@@ -103,7 +103,7 @@ class InceptionV3FacenetModule(LightningModule):
         x = self.activation(x)
         x = self.conversion_layer_1(x)
         x = self.activation(x)
-        x = self.base_model(x)
+        x = self.inception(x)
         x = self.embedding_layer(x)
 
         return x
@@ -125,6 +125,20 @@ class InceptionV3FacenetModule(LightningModule):
             }
         }
         return lr_scheduler_config
+    
+    @torch.no_grad()
+    def transfer_batch_to_device(self, batch, device, dataloader_idx):
+        images, labels = batch
+        images = images.to(device)
+        labels = labels.to(device)
+        return (images, labels)
+
+    @torch.no_grad()
+    def on_before_batch_transfer(self, batch, batch_idx):
+        images, labels = batch
+        labels = self.y_encoder.transform(np.asarray(labels).reshape(-1,1)).squeeze()
+        labels = torch.from_numpy(labels).float()
+        return (images, labels)
 
     def training_step(self, batch, batch_idx):
         images, labels = batch

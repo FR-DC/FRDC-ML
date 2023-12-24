@@ -20,7 +20,7 @@ from lightning.pytorch.loggers import WandbLogger
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 import matplotlib.pyplot as plt
 
-from frdc.load import FRDCDataset
+from frdc.load import FRDCDataset_Facenet as FRDCDataset
 from frdc.load.dataset import FRDCUnlabelledDataset
 from frdc.models.inceptionv3_facenet import InceptionV3FacenetModule
 from frdc.train.frdc_datamodule import FRDCDataModule
