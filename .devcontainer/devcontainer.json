@@ -1,0 +1,16 @@
+{
+  "name": "frdc",
+  "build": {
+    "dockerfile": "../Dockerfile",
+  },
+  "containerEnv": {
+    "LABEL_STUDIO_HOST": "host.docker.internal",
+    "LABEL_STUDIO_API_KEY": "${localEnv:LABEL_STUDIO_API_KEY}",
+  },
+  "runArgs": [
+    "--gpus=all",
+  ],
+  "hostRequirements": {
+    "gpu": true,
+  }
+}

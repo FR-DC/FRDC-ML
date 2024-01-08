@@ -3,8 +3,13 @@
 This test is done by training a model on the 20201218 dataset, then testing on
 the 20210510 dataset.
 """
-
 import os
+
+# Uncomment this to run the W&B monitoring locally
+# import os
+# from frdc.utils.training import predict, plot_confusion_matrix
+# os.environ["WANDB_MODE"] = "offline"
+
 from pathlib import Path
 
 import lightning as pl
@@ -18,15 +23,14 @@ from lightning.pytorch.callbacks import (
 from lightning.pytorch.loggers import WandbLogger
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 
-from frdc.load import FRDCDataset
-from frdc.load.dataset import FRDCUnlabelledDataset
+from frdc.load.preset import FRDCDatasetPreset as ds
 from frdc.models.inceptionv3 import InceptionV3MixMatchModule
 from frdc.train.frdc_datamodule import FRDCDataModule
+from frdc.utils.training import predict, plot_confusion_matrix
 from model_tests.utils import (
     train_preprocess,
     train_unl_preprocess,
     preprocess,
-    evaluate,
     FRDCDatasetFlipped,
 )
 
@@ -38,32 +42,12 @@ def main(
     val_iters=15,
     lr=1e-3,
 ):
-    run = wandb.init()
-    logger = WandbLogger(name="chestnut_dec_may", project="frdc")
     # Prepare the dataset
-    train_lab_ds = FRDCDataset(
-        "chestnut_nature_park",
-        "20201218",
-        None,
-        transform=train_preprocess,
+    train_lab_ds = ds.chestnut_20201218(transform=train_preprocess)
+    train_unl_ds = ds.chestnut_20201218.unlabelled(
+        transform=train_unl_preprocess(2)
     )
-
-    # TODO: This is a hacky impl of the unlabelled dataset, see the docstring
-    #       for future work.
-    train_unl_ds = FRDCUnlabelledDataset(
-        "chestnut_nature_park",
-        "20201218",
-        None,
-        transform=train_unl_preprocess(2),
-    )
-
-    # Subset(train_ds, np.argwhere(train_ds.targets == 0).reshape(-1))
-    val_ds = FRDCDataset(
-        "chestnut_nature_park",
-        "20210510",
-        "90deg43m85pct255deg",
-        transform=preprocess,
-    )
+    val_ds = ds.chestnut_20210510_43m(transform=preprocess)
 
     oe = OrdinalEncoder(
         handle_unknown="use_encoded_value",
@@ -78,12 +62,12 @@ def main(
     # Prepare the datamodule and trainer
     dm = FRDCDataModule(
         train_lab_ds=train_lab_ds,
-        # Pass in None to use the default supervised DM
-        train_unl_ds=train_unl_ds,
+        train_unl_ds=train_unl_ds,  # None to use supervised DM
         val_ds=val_ds,
         batch_size=batch_size,
         train_iters=train_iters,
         val_iters=val_iters,
+        sampling_strategy="stratified",
     )
 
     trainer = pl.Trainer(
@@ -101,32 +85,41 @@ def main(
                 monitor="val_loss", mode="min", save_top_k=1
             ),
         ],
-        logger=logger,
+        logger=(
+            logger := WandbLogger(name="chestnut_dec_may", project="frdc")
+        ),
     )
+
     m = InceptionV3MixMatchModule(
         n_classes=n_classes,
         lr=lr,
         x_scaler=ss,
         y_encoder=oe,
     )
+    logger.watch(m)
 
     trainer.fit(m, datamodule=dm)
 
     with open(Path(__file__).parent / "report.md", "w") as f:
         f.write(
             f"# Chestnut Nature Park (Dec 2020 vs May 2021)\n"
-            f"- Results: [WandB Report]({run.get_url()})"
+            f"- Results: [WandB Report]({wandb.run.get_url()})"
         )
 
-    fig, acc = evaluate(
+    y_true, y_pred = predict(
         ds=FRDCDatasetFlipped(
             "chestnut_nature_park",
             "20210510",
             "90deg43m85pct255deg",
             transform=preprocess,
         ),
+        model_cls=InceptionV3MixMatchModule,
         ckpt_pth=Path(ckpt.best_model_path),
     )
+    fig, ax = plot_confusion_matrix(y_true, y_pred, oe.categories_[0])
+    acc = np.sum(y_true == y_pred) / len(y_true)
+    ax.set_title(f"Accuracy: {acc:.2%}")
+
     wandb.log({"confusion_matrix": wandb.Image(fig)})
     wandb.log({"eval_accuracy": acc})
 
@@ -140,8 +133,8 @@ if __name__ == "__main__":
     VAL_ITERS = 15
     LR = 1e-3
 
-    assert wandb.run is None
-    wandb.setup(wandb.Settings(program=__name__, program_relpath=__name__))
+    wandb.login(key=os.environ["WANDB_API_KEY"])
+
     main(
         batch_size=BATCH_SIZE,
         epochs=EPOCHS,

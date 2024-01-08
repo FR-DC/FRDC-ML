@@ -35,15 +35,13 @@ Take a look at <code>frdc.conf.BAND_MAX_CONFIG</code> for an example.
 ## Usage
 
 ```python
-from frdc.load import FRDCDataset
+from frdc.load.preset import FRDCDatasetPreset
 from frdc.preprocess.scale import (
     scale_0_1_per_band, scale_normal_per_band, scale_static_per_band
 )
 from frdc.conf import BAND_MAX_CONFIG
 
-ds = FRDCDataset(site='chestnut_nature_park',
-                 date='20201218',
-                 version=None, )
+ds = FRDCDatasetPreset.chestnut_20201218()
 ar, order = ds.get_ar_bands()
 ar_01 = scale_0_1_per_band(ar)
 ar_norm = scale_normal_per_band(ar)

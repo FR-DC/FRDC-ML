@@ -8,16 +8,6 @@ from label_studio_sdk.data_manager import Filters, Column, Type, Operator
 
 from frdc.conf import LABEL_STUDIO_CLIENT
 
-# try:
-#     client.check_connection()
-# except ConnectionError:
-#     raise ConnectionError(
-#         f"Could not connect to Label Studio at {LABEL_STUDIO_URL}. "
-#         "This uses Label Studio's check_connection() method,"
-#         "which performs retries. "
-#         "Use utils.is_label_studio_up() as a faster alternative to check if "
-#         "Label Studio is up."
-#     )
 
 logger = logging.getLogger(__name__)
 

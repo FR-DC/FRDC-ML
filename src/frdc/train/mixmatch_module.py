@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn.parallel
 import torch.nn.parallel
+import wandb
 from lightning import LightningModule
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from torch.nn.functional import one_hot
@@ -52,6 +53,7 @@ class MixMatchModule(LightningModule):
         self.sharpen_temp = sharpen_temp
         self.mix_beta_alpha = mix_beta_alpha
         self.save_hyperparameters()
+        self.lbl_logger = WandBLabelLogger()
 
     @property
     @abstractmethod
@@ -150,10 +152,16 @@ class MixMatchModule(LightningModule):
         ) / self.trainer.max_epochs
 
     def training_step(self, batch, batch_idx):
-        # Progress is a linear ramp from 0 to 1 over the course of training.
         (x_lbl, y_lbl), x_unls = batch
+        self.lbl_logger(
+            self.logger.experiment,
+            "Input Y Label",
+            y_lbl,
+            flush_every=10,
+            num_bins=self.n_classes,
+        )
 
-        y_lbl = one_hot(y_lbl.long(), num_classes=self.n_classes)
+        y_lbl_ohe = one_hot(y_lbl.long(), num_classes=self.n_classes)
 
         # If x_unls is Truthy, then we are using MixMatch.
         # Otherwise, we are just using supervised learning.
@@ -164,7 +172,7 @@ class MixMatchModule(LightningModule):
                 y_unl = self.sharpen(y_unl, self.sharpen_temp)
 
             x = torch.cat([x_lbl, *x_unls], dim=0)
-            y = torch.cat([y_lbl, *(y_unl,) * len(x_unls)], dim=0)
+            y = torch.cat([y_lbl_ohe, *(y_unl,) * len(x_unls)], dim=0)
             x_mix, y_mix = self.mix_up(x, y, self.mix_beta_alpha)
 
             # This had interleaving, but it was removed as it's not
@@ -177,7 +185,21 @@ class MixMatchModule(LightningModule):
             y_mix_unl = y_mix[batch_size:]
 
             loss_lbl = self.loss_lbl(y_mix_lbl_pred, y_mix_lbl)
+            self.lbl_logger(
+                self.logger.experiment,
+                "Labelled Y Pred",
+                torch.argmax(y_mix_lbl_pred, dim=1),
+                flush_every=10,
+                num_bins=self.n_classes,
+            )
             loss_unl = self.loss_unl(y_mix_unl_pred, y_mix_unl)
+            self.lbl_logger(
+                self.logger.experiment,
+                "Unlabelled Y Pred",
+                torch.argmax(y_mix_unl_pred, dim=1),
+                flush_every=10,
+                num_bins=self.n_classes,
+            )
             loss_unl_scale = self.loss_unl_scaler(progress=self.progress)
 
             loss = loss_lbl + loss_unl * loss_unl_scale
@@ -188,7 +210,7 @@ class MixMatchModule(LightningModule):
         else:
             # This route implies that we are just using supervised learning
             y_pred = self(x_lbl)
-            loss = self.loss_lbl(y_pred, y_lbl.float())
+            loss = self.loss_lbl(y_pred, y_lbl_ohe.float())
 
         self.log("train_loss", loss)
         return loss
@@ -201,7 +223,21 @@ class MixMatchModule(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        self.lbl_logger(
+            self.logger.experiment,
+            "Val Input Y Label",
+            y,
+            flush_every=1,
+            num_bins=self.n_classes,
+        )
         y_pred = self.ema_model(x)
+        self.lbl_logger(
+            self.logger.experiment,
+            "Val Pred Y Label",
+            torch.argmax(y_pred, dim=1),
+            flush_every=1,
+            num_bins=self.n_classes,
+        )
         loss = F.cross_entropy(y_pred, y.long())
 
         acc = accuracy(
@@ -241,72 +277,98 @@ class MixMatchModule(LightningModule):
         We leverage this to do some preprocessing on the data.
         Namely, we use the StandardScaler and OrdinalEncoder to transform the
         data.
+
+        Notes:
+            PyTorch Lightning may complain about this being on the Module
+            instead of the DataModule. However, this is intentional as we
+            want to export the model alongside the transformations.
         """
 
-        # TODO: ngl, this is pretty chunky.
-        #       It works, but it's not very pretty.
-        if self.training:
-            (x_lab, y), x_unl = batch
-            xs = [x_lab, *x_unl]
-
-            b, c, h, w = x_lab.shape
-
-            # Move Channel to the last dimension then transform
-            xs_ss: list[np.ndarray] = [
-                self.x_scaler.transform(x.permute(0, 2, 3, 1).reshape(-1, c))
-                for x in xs
-            ]
-
-            # Move Channel back to the second dimension
-            xs_: list[torch.Tensor] = [
-                torch.from_numpy(x_ss.reshape(b, h, w, c))
-                .permute(0, 3, 1, 2)
-                .float()
-                for x_ss in xs_ss
-            ]
-
-            y: tuple[str]
-            y_: torch.Tensor = torch.from_numpy(
-                self.y_encoder.transform(np.array(y).reshape(-1, 1)).squeeze()
-            )
-
-            # Ordinal Encoders can return a np.nan if the value is not in the
-            # categories. We will remove that from the batch.
-            x_ = xs_[0][~torch.isnan(y_)]
-            y_ = y_[~torch.isnan(y_)]
-
-            return (x_, y_.long()), xs_[1:]
-
-        else:
-            x, y = batch
-
-            x: torch.Tensor
-            b, c, h, w = x.shape
-
+        def x_trans_fn(x):
             # Standard Scaler only accepts (n_samples, n_features),
             # so we need to do some fancy reshaping.
             # Note that moving dimensions then reshaping is different from just
             # reshaping!
+
             # Move Channel to the last dimension then transform
-            x_ss: np.ndarray = self.x_scaler.transform(
+            # B x C x H x W -> B x H x W x C
+            b, c, h, w = x.shape
+            x_ss = self.x_scaler.transform(
                 x.permute(0, 2, 3, 1).reshape(-1, c)
             )
 
             # Move Channel back to the second dimension
-            x_: torch.Tensor = (
+            # B x H x W x C -> B x C x H x W
+            return (
                 torch.from_numpy(x_ss.reshape(b, h, w, c))
                 .permute(0, 3, 1, 2)
                 .float()
             )
 
-            y: tuple[str]
-            y_: torch.Tensor = torch.from_numpy(
+        def y_trans_fn(y):
+            return torch.from_numpy(
                 self.y_encoder.transform(np.array(y).reshape(-1, 1)).squeeze()
             )
 
-            # Ordinal Encoders can return a np.nan if the value is not in the
-            # categories. We will remove that from the batch.
-            x_ = x_[~torch.isnan(y_)]
-            y_ = y_[~torch.isnan(y_)]
+        # We need to handle the train and val dataloaders differently.
+        # For training, the unlabelled data is returned while for validation,
+        # the unlabelled data is just omitted.
+        if self.training:
+            (x_lab, y), x_unl = batch
+        else:
+            x_lab, y = batch
+            x_unl = []
 
-            return x_, y_.long()
+        x_lab_trans = x_trans_fn(x_lab)
+        y_trans = y_trans_fn(y)
+        x_unl_trans = [x_trans_fn(x) for x in x_unl]
+
+        # Remove nan values from the batch
+        #   Ordinal Encoders can return a np.nan if the value is not in the
+        #   categories. We will remove that from the batch.
+        nan = ~torch.isnan(y_trans)
+        x_lab_trans = x_lab_trans[nan]
+        x_unl_trans = [x[nan] for x in x_unl_trans]
+        y_trans = y_trans[nan]
+
+        if self.training:
+            return (x_lab_trans, y_trans.long()), x_unl_trans
+        else:
+            return x_lab_trans, y_trans.long()
+
+
+class WandBLabelLogger(dict):
+    """Logger to log y labels to WandB"""
+
+    def __call__(
+        self,
+        logger: wandb.sdk.wandb_run.Run,
+        key: str,
+        value: torch.Tensor,
+        num_bins: int,
+        flush_every: int = 10,
+    ):
+        """Log the labels to WandB
+
+        Args:
+            logger: The W&B logger. Accessible through `self.logger.experiment`
+            key: The key to log the labels under.
+            value: The labels to log.
+            flush_every: How often to flush the labels to WandB.
+
+        """
+        if key not in self.keys():
+            self[key] = [value]
+        else:
+            self[key].append(value)
+
+        if len(self[key]) % flush_every == 0:
+            logger.log(
+                {
+                    key: wandb.Histogram(
+                        torch.flatten(value).detach().cpu().tolist(),
+                        num_bins=num_bins,
+                    )
+                }
+            )
+            self[key] = []

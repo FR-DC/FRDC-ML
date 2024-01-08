@@ -29,14 +29,12 @@ classification</b>
 Perform auto-segmentation on a dataset to yield a label classification.
 
 ```python
-from frdc.load import FRDCDataset
+from frdc.load.preset import FRDCDatasetPreset
 from frdc.preprocess.morphology import (
     threshold_binary_mask, binary_watershed
 )
 
-ds = FRDCDataset(site='chestnut_nature_park',
-                 date='20201218',
-                 version=None, )
+ds = FRDCDatasetPreset.chestnut_20201218()
 ar, order = ds.get_ar_bands()
 mask = threshold_binary_mask(ar, order.index('NIR'), 90 / 256)
 ar_label = binary_watershed(mask)

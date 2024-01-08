@@ -25,16 +25,17 @@ Here, we'll download and load our
 - `labels`: The labels of the trees (segments)
 
 ```python
-from frdc.load.dataset import FRDCDataset
+from frdc.load.preset import FRDCDatasetPreset
 
-ds = FRDCDataset(site="chestnut_nature_park", date="20201218", version=None)
+ds = FRDCDatasetPreset.chestnut_20201218()
 ar, order = ds.get_ar_bands()
 bounds, labels = ds.get_bounds_and_labels()
 ```
 
 ### What Datasets are there? {collapsible="true"}
 
-> To know what datasets are available, you can run
+> We recommend to use FRDCDatasetPreset. However, if you want  
+> to know what other datasets are available, you can run
 > [load.gcs](load.gcs.md)'s `list_gcs_datasets()`
 > method
 
@@ -86,10 +87,10 @@ To segment the data, use [Extract Segments](preprocessing.extract_segments.md).
 Here, we'll segment the data by the bounds.
 
 ```python
-from frdc.load.dataset import FRDCDataset
+from frdc.load.preset import FRDCDatasetPreset
 from frdc.preprocess.extract_segments import extract_segments_from_bounds
 
-ds = FRDCDataset(site="chestnut_nature_park", date="20201218", version=None)
+ds = FRDCDatasetPreset.chestnut_20201218()
 ar, order = ds.get_ar_bands()
 bounds, labels = ds.get_bounds_and_labels()
 segments = extract_segments_from_bounds(ar, bounds)
@@ -109,11 +110,11 @@ We can then use these data to plot out the first tree segment.
 ```python
 import matplotlib.pyplot as plt
 
-from frdc.load.dataset import FRDCDataset
+from frdc.load.preset import FRDCDatasetPreset
 from frdc.preprocess.extract_segments import extract_segments_from_bounds
 from frdc.preprocess.scale import scale_0_1_per_band
 
-ds = FRDCDataset(site="chestnut_nature_park", date="20201218", version=None)
+ds = FRDCDatasetPreset.chestnut_20201218()
 ar, order = ds.get_ar_bands()
 bounds, labels = ds.get_bounds_and_labels()
 segments = extract_segments_from_bounds(ar, bounds)

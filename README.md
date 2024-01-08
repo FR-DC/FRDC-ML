@@ -54,14 +54,6 @@ To illustrate this, take a look at how
 `tests/model_tests/chestnut_dec_may/train.py` is written. It pulls in relevant
 modules from each stage and constructs a pipeline.
 
-
-> Initially, we evaluated a few ML E2E solutions, despite them offering great
-> functionality, their flexibility was
-> limited. From a dev perspective, **Active Learning** was a gray area, and we
-> foresee heavy shoehorning.
-> Ultimately, we decided that the risk was too great, thus we resort to
-> creating our own solution.
-
 ## Contributing
 
 ### Pre-commit Hooks
@@ -80,3 +72,5 @@ If you're using `pip` instead of `poetry`, run the following commands:
 pip install pre-commit
 pre-commit install
 ```
+
+Alternatively, you can use Black configured with your own IDE.

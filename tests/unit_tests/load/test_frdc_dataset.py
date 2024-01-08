@@ -1,4 +1,5 @@
 from frdc.conf import BAND_CONFIG
+from frdc.load.dataset import FRDCConcatDataset
 from frdc.utils import Rect
 
 
@@ -23,3 +24,14 @@ def test_get_bounds(ds):
     bounds, labels = ds.get_bounds_and_labels()
     assert all([isinstance(b, Rect) for b in bounds])
     assert len(bounds) == len(labels)
+
+
+def test_ds_add_ds_creates_concat_ds(ds):
+    assert isinstance(ds + ds, FRDCConcatDataset)
+    assert len(ds + ds) == len(ds) * 2
+
+
+def test_concat_ds_add_ds_creates_concat_ds(ds):
+    cds = ds + ds
+    assert isinstance(cds + ds, FRDCConcatDataset)
+    assert len(cds + ds) == len(ds) * 3

@@ -1,12 +1,8 @@
+from __future__ import annotations
+
 from pathlib import Path
 
-import lightning as pl
-import numpy as np
 import torch
-from matplotlib import pyplot as plt
-from seaborn import heatmap
-from sklearn.metrics import confusion_matrix
-from torch.utils.data import DataLoader
 from torchvision.transforms import RandomVerticalFlip
 from torchvision.transforms.v2 import (
     Compose,
@@ -18,7 +14,7 @@ from torchvision.transforms.v2 import (
 )
 from torchvision.transforms.v2 import RandomHorizontalFlip
 
-from frdc.load import FRDCDataset
+from frdc.load.dataset import FRDCDataset
 from frdc.models.inceptionv3 import InceptionV3MixMatchModule
 
 THIS_DIR = Path(__file__).parent
@@ -47,48 +43,6 @@ class FRDCDatasetFlipped(FRDCDataset):
             return RandomVerticalFlip(p=1)(x), y
         elif idx % 4 == 3:
             return RandomHorizontalFlip(p=1)(RandomVerticalFlip(p=1)(x)), y
-
-
-def evaluate(
-    ds: FRDCDataset, ckpt_pth: Path | str | None = None
-) -> tuple[plt.Figure, float]:
-    if ckpt_pth is None:
-        # This fetches all possible checkpoints and gets the latest one
-        ckpt_pth = sorted(
-            THIS_DIR.glob("**/*.ckpt"), key=lambda x: x.stat().st_mtime_ns
-        )[-1]
-
-    m = InceptionV3MixMatchModule.load_from_checkpoint(ckpt_pth)
-    # Make predictions
-    trainer = pl.Trainer(logger=False)
-    pred = trainer.predict(m, dataloaders=DataLoader(ds, batch_size=32))
-
-    y_trues = []
-    y_preds = []
-    for y_true, y_pred in pred:
-        y_trues.append(y_true)
-        y_preds.append(y_pred)
-    y_trues = np.concatenate(y_trues)
-    y_preds = np.concatenate(y_preds)
-    acc = (y_trues == y_preds).mean()
-
-    # Plot the confusion matrix
-    cm = confusion_matrix(y_trues, y_preds)
-
-    plt.figure(figsize=(10, 10))
-
-    heatmap(
-        cm,
-        annot=True,
-        xticklabels=m.y_encoder.categories_[0],
-        yticklabels=m.y_encoder.categories_[0],
-        cbar=False,
-    )
-    plt.title(f"Accuracy: {acc:.2%}")
-    plt.tight_layout(pad=3)
-    plt.xlabel("Predicted Label")
-    plt.ylabel("True Label")
-    return plt.gcf(), acc
 
 
 def preprocess(x):

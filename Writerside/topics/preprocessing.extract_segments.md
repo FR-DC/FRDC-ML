@@ -135,12 +135,10 @@ Extract segments from bounds and labels.
 
 ```python
 import numpy as np
-from frdc.load import FRDCDataset
+from frdc.load.preset import FRDCDatasetPreset
 from frdc.preprocess.extract_segments import extract_segments_from_bounds
 
-ds = FRDCDataset(site='chestnut_nature_park',
-                 date='20201218',
-                 version=None, )
+ds = FRDCDatasetPreset.chestnut_20201218()
 ar, order = ds.get_ar_bands()
 bounds, labels = ds.get_bounds_and_labels()
 
@@ -155,7 +153,7 @@ Extract segments from a label classification.
 from skimage.morphology import remove_small_objects, remove_small_holes
 import numpy as np
 
-from frdc.load import FRDCDataset
+from frdc.load.preset import FRDCDatasetPreset
 from frdc.preprocess.morphology import (
     threshold_binary_mask, binary_watershed
 )
@@ -164,9 +162,7 @@ from frdc.preprocess.extract_segments import (
     extract_segments_from_labels, remove_small_segments_from_labels
 )
 
-ds = FRDCDataset(site='chestnut_nature_park',
-                 date='20201218',
-                 version=None, )
+ds = FRDCDatasetPreset.chestnut_20201218()
 ar, order = ds.get_ar_bands()
 ar = scale_0_1_per_band(ar)
 ar_mask = threshold_binary_mask(ar, -1, 90 / 256)
