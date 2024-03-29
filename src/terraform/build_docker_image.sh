@@ -8,7 +8,7 @@
 source .env && \
  docker build \
  --build-arg=POSTGRE_PASSWORD=$POSTGRE_PASSWORD \
- --build-arg="POSTGRE_USER=postgres.$(terraform output -raw db_id)" \
- --build-arg="POSTGRE_HOST=aws-0-$(terraform output -raw db_region).pooler.supabase.com" \
+ --build-arg="POSTGRE_USER=postgres.$(terraform output -raw supabase_project_id)" \
+ --build-arg="POSTGRE_HOST=aws-0-$(terraform output -raw supabase_project_region).pooler.supabase.com" \
  . \
  -t label-studio
