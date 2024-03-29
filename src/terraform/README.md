@@ -4,6 +4,22 @@ The strategy for deploying Label Studio comes in two parts:
 1. The Label Studio front-end 
 2. The PostgreSQL back-end
 
+## Commands
+
+```bash
+# Initialize dir & Install Terraform Providers
+terraform init
+
+# Apply Terraform Configurations
+terraform apply -var-file=secrets.tfvars
+
+# Build Docker Image (Builds as tag label-studio)
+bash ./build_docker_image.sh 
+
+# Run Image locally
+docker run -p 8080:8080 label-studio
+```
+
 ## Initialization Strategy
 
 The core strategy is to wrap **Label Studio** in a 
