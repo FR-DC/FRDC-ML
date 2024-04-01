@@ -4,6 +4,7 @@ on:
     branches: [ 'terraform' ]
     paths:
       - 'src/terraform/Dockerfile'
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
