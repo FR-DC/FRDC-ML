@@ -2,6 +2,8 @@ name: Create and publish our custom Label Studio Docker image
 on:
   push:
     branches: [ 'terraform' ]
+    paths:
+      - 'src/terraform/Dockerfile'
 
 env:
   REGISTRY: ghcr.io
