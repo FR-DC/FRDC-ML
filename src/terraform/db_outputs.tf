@@ -1,7 +1,7 @@
-output "supabase_project_id" {
-  value = supabase_project.production.id
+output "pg_user" {
+  value = "postgres.${supabase_project.production.id}"
 }
 
-output "supabase_project_region" {
-  value = supabase_project.production.region
+output "pg_host" {
+  value = "aws-0-${supabase_project.production.region}.pooler.supabase.com"
 }
