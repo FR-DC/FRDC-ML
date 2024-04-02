@@ -10,12 +10,6 @@ variable "supabase_org_id" {
   sensitive   = true
 }
 
-variable "supabase_project_id" {
-  description = "The project ID for Supabase"
-  type        = string
-  sensitive   = true
-}
-
 variable "supabase_project_name" {
   description = "The project name for Supabase"
   type        = string
@@ -30,6 +24,12 @@ variable "supabase_project_region" {
 
 variable "db_password" {
   description = "The password for the database"
+  type        = string
+  sensitive   = true
+}
+
+variable "ls_password" {
+  description = "The password for Label Studio"
   type        = string
   sensitive   = true
 }
