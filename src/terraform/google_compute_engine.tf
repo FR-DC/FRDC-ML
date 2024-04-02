@@ -24,7 +24,7 @@ resource "google_compute_instance" "label-studio" {
     goog-ec-src  = "vm_add-tf"
   }
 
-  machine_type = "e2-medium"
+  machine_type = var.google_ce_machine_type
 
   metadata = {
     enable-oslogin            = "true"
