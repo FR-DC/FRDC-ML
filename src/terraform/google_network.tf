@@ -8,7 +8,7 @@ resource "google_compute_firewall" "label-studio-port" {
   }
 
   source_ranges = ["0.0.0.0/0"]
-  target_tags = ["label-studio"]
+  target_tags   = ["label-studio"]
 }
 
 resource "google_compute_network" "label-studio-vpc" {

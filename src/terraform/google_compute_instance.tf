@@ -68,7 +68,7 @@ EOF
   }
 
   service_account {
-    email  = "673270019389-compute@developer.gserviceaccount.com"
+    email = "673270019389-compute@developer.gserviceaccount.com"
     scopes = [
       "https://www.googleapis.com/auth/devstorage.read_only",
       "https://www.googleapis.com/auth/logging.write",
