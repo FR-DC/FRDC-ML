@@ -9,6 +9,7 @@ output "db_host" {
 output "ls_internal_ip" {
   value = google_compute_instance.label-studio.network_interface[0].network_ip
 }
+
 output "ls_external_ip" {
   value = google_compute_instance.label-studio.network_interface[0].access_config[0].nat_ip
 }
