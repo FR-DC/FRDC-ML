@@ -27,9 +27,3 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
-
-variable "ls_password" {
-  description = "The password for Label Studio"
-  type        = string
-  sensitive   = true
-}
