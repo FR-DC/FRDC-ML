@@ -1,4 +1,4 @@
-name: Create and publish our custom Label Studio Docker image
+name: Publish Custom Label Studio Image
 on:
   push:
     branches: [ 'terraform' ]
