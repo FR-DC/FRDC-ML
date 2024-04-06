@@ -21,3 +21,14 @@ variable "google_ce_machine_type" {
   type        = string
   default     = "n1-standard-1"
 }
+variable "label_studio_username" {
+  description = "The root Label Studio username (Must be an email)"
+  type        = string
+  sensitive   = true
+}
+
+variable "label_studio_password" {
+  description = "The root Label Studio password"
+  type        = string
+  sensitive   = true
+}

@@ -42,6 +42,10 @@ spec:
         value: aws-0-${supabase_project.production.region}.pooler.supabase.com
       - name: LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK
         value: true
+      - name: LABEL_STUDIO_USERNAME
+        value: ${var.label_studio_username}
+      - name: LABEL_STUDIO_PASSWORD
+        value: ${var.label_studio_password}
       stdin: false
       tty: false
     restartPolicy: Always
