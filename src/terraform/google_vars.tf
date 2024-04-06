@@ -21,6 +21,31 @@ variable "google_ce_machine_type" {
   type        = string
   default     = "n1-standard-1"
 }
+
+variable "google_ce_name" {
+  description = "The Google Cloud Compute Engine instance name"
+  type        = string
+  default     = "label-studio"
+}
+
+variable "google_network_name" {
+  description = "The Google Cloud network name"
+  type        = string
+  default     = "label-studio-vpc"
+}
+
+variable "google_firewall_name" {
+  description = "The Google Cloud firewall name"
+  type        = string
+  default     = "label-studio-port"
+}
+
+variable "google_ip_name" {
+  description = "The Google Cloud static IP name"
+  type        = string
+  default     = "label-studio-ip"
+}
+
 variable "label_studio_username" {
   description = "The root Label Studio username (Must be an email)"
   type        = string

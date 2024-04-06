@@ -1,5 +1,5 @@
 resource "google_compute_firewall" "label-studio-port" {
-  name    = "label-studio-port"
+  name    = var.google_firewall_name
   network = google_compute_network.label-studio-vpc.name
 
   allow {
@@ -12,6 +12,6 @@ resource "google_compute_firewall" "label-studio-port" {
 }
 
 resource "google_compute_network" "label-studio-vpc" {
-  name                    = "label-studio-vpc"
+  name                    = var.google_network_name
   auto_create_subnetworks = true
 }
