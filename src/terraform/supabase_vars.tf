@@ -10,6 +10,12 @@ variable "supabase_org_id" {
   sensitive   = true
 }
 
+variable "supabase_project_id" {
+  description = "The project ID for Supabase"
+  type        = string
+  sensitive   = true
+}
+
 variable "supabase_project_name" {
   description = "The project name for Supabase"
   type        = string

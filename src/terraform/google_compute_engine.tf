@@ -4,7 +4,7 @@
 resource "google_compute_instance" "label-studio" {
   boot_disk {
     auto_delete = true
-    device_name = "label-studio"
+    device_name = var.google_ce_name
 
     initialize_params {
       image = "projects/cos-cloud/global/images/cos-stable-109-17800-147-38"
@@ -56,6 +56,7 @@ EOF
 
   network_interface {
     access_config {
+      nat_ip       = google_compute_address.label-studio-ip.address
       network_tier = "STANDARD"
     }
 
@@ -92,5 +93,10 @@ EOF
   zone = var.google_zone
 
   tags = ["label-studio"]
+  depends_on = [
+    google_compute_network.label-studio-vpc,
+    google_compute_address.label-studio-ip,
+    supabase_project.production
+  ]
 }
 
