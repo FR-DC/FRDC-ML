@@ -4,7 +4,7 @@
 resource "google_compute_instance" "label-studio" {
   boot_disk {
     auto_delete = true
-    device_name = var.google_ce_name
+    device_name = var.google_compute_name
 
     initialize_params {
       image = "projects/cos-cloud/global/images/cos-stable-109-17800-147-38"
@@ -24,7 +24,7 @@ resource "google_compute_instance" "label-studio" {
     goog-ec-src  = "vm_add-tf"
   }
 
-  machine_type = var.google_ce_machine_type
+  machine_type = var.google_compute_machine_type
 
   metadata = {
     enable-oslogin            = "true"
@@ -43,16 +43,17 @@ spec:
       - name: LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK
         value: true
       - name: LABEL_STUDIO_USERNAME
-        value: ${var.label_studio_username}
+        value: ${var.ls_username}
       - name: LABEL_STUDIO_PASSWORD
-        value: ${var.label_studio_password}
+        value: ${var.ls_password}
       stdin: false
       tty: false
     restartPolicy: Always
 EOF
   }
 
-  name = "label-studio"
+  name = var.google_compute_name
+  zone = var.google_zone
 
   network_interface {
     access_config {
@@ -89,8 +90,6 @@ EOF
     enable_secure_boot          = false
     enable_vtpm                 = true
   }
-
-  zone = var.google_zone
 
   tags = ["label-studio"]
   depends_on = [

@@ -15,10 +15,10 @@ resource "google_compute_firewall" "label-studio-port" {
 }
 
 resource "google_compute_network" "label-studio-vpc" {
-  name                    = var.google_network_name
+  name                    = var.google_vpc_name
   auto_create_subnetworks = true
 }
 
 resource "google_compute_address" "label-studio-ip" {
-  name = var.google_ip_name
+  name = var.google_address_name
 }

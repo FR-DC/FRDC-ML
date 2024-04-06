@@ -16,20 +16,20 @@ variable "google_zone" {
   default     = "asia-southeast1-b"
 }
 
-variable "google_ce_machine_type" {
+variable "google_compute_machine_type" {
   description = "The Google Cloud Compute Engine machine type to use"
   type        = string
   default     = "n1-standard-1"
 }
 
-variable "google_ce_name" {
+variable "google_compute_name" {
   description = "The Google Cloud Compute Engine instance name"
   type        = string
   default     = "label-studio"
 }
 
-variable "google_network_name" {
-  description = "The Google Cloud network name"
+variable "google_vpc_name" {
+  description = "The Google Cloud (VPC) network name"
   type        = string
   default     = "label-studio-vpc"
 }
@@ -40,19 +40,19 @@ variable "google_firewall_name" {
   default     = "label-studio-port"
 }
 
-variable "google_ip_name" {
+variable "google_address_name" {
   description = "The Google Cloud static IP name"
   type        = string
   default     = "label-studio-ip"
 }
 
-variable "label_studio_username" {
+variable "ls_username" {
   description = "The root Label Studio username (Must be an email)"
   type        = string
   sensitive   = true
 }
 
-variable "label_studio_password" {
+variable "ls_password" {
   description = "The root Label Studio password"
   type        = string
   sensitive   = true
