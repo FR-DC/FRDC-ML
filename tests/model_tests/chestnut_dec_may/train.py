@@ -1,4 +1,4 @@
-""" Tests for the InceptionV3 model on the Chestnut Nature Park dataset.
+""" Tests for the model on the Chestnut Nature Park dataset.
 
 This test is done by training a model on the 20201218 dataset, then testing on
 the 20210510 dataset.
