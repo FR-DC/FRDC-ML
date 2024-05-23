@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import torch
+from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 from torchvision.transforms import RandomVerticalFlip
 from torchvision.transforms.v2 import (
     Compose,
@@ -105,3 +107,20 @@ def strong_aug(size: int):
             RandomApply([RandomRotation((90, 90))], p=0.5),
         ]
     )(x)
+
+
+def get_y_encoder(targets):
+    oe = OrdinalEncoder(
+        handle_unknown="use_encoded_value",
+        unknown_value=np.nan,
+    )
+    oe.fit(np.array(targets).reshape(-1, 1))
+    return oe
+
+
+def get_x_scaler(segments):
+    ss = StandardScaler()
+    ss.fit(
+        np.concatenate([segm.reshape(-1, segm.shape[-1]) for segm in segments])
+    )
+    return ss
