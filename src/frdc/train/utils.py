@@ -3,6 +3,8 @@ import torch
 import wandb
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 
+from frdc.utils.utils import fn_recursive
+
 
 def mix_up(
     x: torch.Tensor,
@@ -117,16 +119,25 @@ def preprocess(
 
     x_lab_trans = x_standard_scale(x_scaler, x_lab)
     y_trans = y_encode(y_encoder, y_lab)
-    x_unl_trans = [x_standard_scale(x) for x in x_unl]
+    x_unl_trans = fn_recursive(
+        x_unl,
+        fn=lambda x: x_standard_scale(x_scaler, x),
+        type_atom=torch.Tensor,
+        type_list=list,
+    )
 
     # Remove nan values from the batch
     #   Ordinal Encoders can return a np.nan if the value is not in the
     #   categories. We will remove that from the batch.
     nan = ~torch.isnan(y_trans)
     x_lab_trans = x_lab_trans[nan]
-    x_unl_trans = [x[nan] for x in x_unl_trans]
     x_lab_trans = torch.nan_to_num(x_lab_trans)
-    x_unl_trans = [torch.nan_to_num(x) for x in x_unl_trans]
+    x_unl_trans = fn_recursive(
+        x_unl_trans,
+        fn=lambda x: torch.nan_to_num(x[nan]),
+        type_atom=torch.Tensor,
+        type_list=list,
+    )
     y_trans = y_trans[nan]
 
     return (x_lab_trans, y_trans.long()), x_unl_trans
