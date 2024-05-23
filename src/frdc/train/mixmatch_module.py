@@ -12,6 +12,8 @@ from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from torch.nn.functional import one_hot
 from torchmetrics.functional import accuracy
 
+from frdc.train.utils import mix_up, sharpen, wandb_hist
+
 
 class MixMatchModule(LightningModule):
     def __init__(
@@ -86,47 +88,6 @@ class MixMatchModule(LightningModule):
     def loss_unl(unl_pred: torch.Tensor, unl: torch.Tensor):
         return torch.mean((torch.softmax(unl_pred, dim=1) - unl) ** 2)
 
-    @staticmethod
-    def mix_up(
-        x: torch.Tensor,
-        y: torch.Tensor,
-        alpha: float,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Mix up the data
-
-        Args:
-            x: The data to mix up.
-            y: The labels to mix up.
-            alpha: The alpha to use for the beta distribution.
-
-        Returns:
-            The mixed up data and labels.
-        """
-        ratio = np.random.beta(alpha, alpha)
-        ratio = max(ratio, 1 - ratio)
-
-        shuf_idx = torch.randperm(x.size(0))
-
-        x_mix = ratio * x + (1 - ratio) * x[shuf_idx]
-        y_mix = ratio * y + (1 - ratio) * y[shuf_idx]
-        return x_mix, y_mix
-
-    @staticmethod
-    def sharpen(y: torch.Tensor, temp: float) -> torch.Tensor:
-        """Sharpen the predictions by raising them to the power of 1 / temp
-
-        Args:
-            y: The predictions to sharpen.
-            temp: The temperature to use.
-
-        Returns:
-            The probability-normalized sharpened predictions
-        """
-        y_sharp = y ** (1 / temp)
-        # Sharpening will change the sum of the predictions.
-        y_sharp /= y_sharp.sum(dim=1, keepdim=True)
-        return y_sharp
-
     def guess_labels(
         self,
         x_unls: list[torch.Tensor],
@@ -154,7 +115,7 @@ class MixMatchModule(LightningModule):
         self.log("train/x_lbl_mean", x_lbl.mean())
         self.log("train/x_lbl_stdev", x_lbl.std())
 
-        wandb.log({"train/x_lbl": self.wandb_hist(y_lbl, self.n_classes)})
+        wandb.log({"train/x_lbl": wandb_hist(y_lbl, self.n_classes)})
         y_lbl_ohe = one_hot(y_lbl.long(), num_classes=self.n_classes)
 
         # If x_unls is Truthy, then we are using MixMatch.
@@ -165,11 +126,11 @@ class MixMatchModule(LightningModule):
             self.log("train/x0_unl_stdev", x_unls[0].std())
             with torch.no_grad():
                 y_unl = self.guess_labels(x_unls=x_unls)
-                y_unl = self.sharpen(y_unl, self.sharpen_temp)
+                y_unl = sharpen(y_unl, self.sharpen_temp)
 
             x = torch.cat([x_lbl, *x_unls], dim=0)
             y = torch.cat([y_lbl_ohe, *(y_unl,) * len(x_unls)], dim=0)
-            x_mix, y_mix = self.mix_up(x, y, self.mix_beta_alpha)
+            x_mix, y_mix = mix_up(x, y, self.mix_beta_alpha)
 
             # This had interleaving, but it was removed as it's not
             # significantly better
@@ -184,14 +145,14 @@ class MixMatchModule(LightningModule):
             loss_unl = self.loss_unl(y_mix_unl_pred, y_mix_unl)
             wandb.log(
                 {
-                    "train/y_lbl_pred": self.wandb_hist(
+                    "train/y_lbl_pred": wandb_hist(
                         torch.argmax(y_mix_lbl_pred, dim=1), self.n_classes
                     )
                 }
             )
             wandb.log(
                 {
-                    "train/y_unl_pred": self.wandb_hist(
+                    "train/y_unl_pred": wandb_hist(
                         torch.argmax(y_mix_unl_pred, dim=1), self.n_classes
                     )
                 }
@@ -225,20 +186,13 @@ class MixMatchModule(LightningModule):
     def on_after_backward(self) -> None:
         self.update_ema()
 
-    @staticmethod
-    def wandb_hist(x: torch.Tensor, num_bins: int) -> wandb.Histogram:
-        return wandb.Histogram(
-            torch.flatten(x).detach().cpu().tolist(),
-            num_bins=num_bins,
-        )
-
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        wandb.log({"val/y_lbl": self.wandb_hist(y, self.n_classes)})
+        wandb.log({"val/y_lbl": wandb_hist(y, self.n_classes)})
         y_pred = self.ema_model(x)
         wandb.log(
             {
-                "val/y_lbl_pred": self.wandb_hist(
+                "val/y_lbl_pred": wandb_hist(
                     torch.argmax(y_pred, dim=1), self.n_classes
                 )
             }
