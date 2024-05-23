@@ -64,6 +64,12 @@ def n_weak_aug(size, n_aug: int = 2):
     )
 
 
+def n_strong_aug(size, n_aug: int = 2):
+    return lambda x: (
+        [strong_aug(size)(x) for _ in range(n_aug)] if n_aug > 0 else None
+    )
+
+
 def weak_aug(size: int):
     return lambda x: Compose(
         [
