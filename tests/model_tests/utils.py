@@ -70,6 +70,15 @@ def n_strong_aug(size, n_aug: int = 2):
     )
 
 
+def n_weak_strong_aug(size, n_aug: int = 2):
+    def f(x):
+        x_weak = n_weak_aug(size, n_aug)(x)
+        x_strong = n_strong_aug(size, n_aug)(x)
+        return list(zip(*[x_weak, x_strong])) if n_aug > 0 else None
+
+    return f
+
+
 def weak_aug(size: int):
     return lambda x: Compose(
         [
