@@ -4,7 +4,7 @@ import lightning as pl
 import numpy as np
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 
-from frdc.models.inceptionv3 import InceptionV3MixMatchModule
+from frdc.models.efficientnetb1 import EfficientNetB1MixMatchModule
 from frdc.train.frdc_datamodule import FRDCDataModule
 
 BATCH_SIZE = 3
@@ -31,7 +31,7 @@ def test_manual_segmentation_pipeline(ds):
     ss = StandardScaler()
     ss.fit(ds.ar.reshape(-1, ds.ar.shape[-1]))
 
-    m = InceptionV3MixMatchModule(
+    m = EfficientNetB1MixMatchModule(
         in_channels=ds.ar.shape[-1],
         n_classes=n_classes,
         lr=1e-3,
