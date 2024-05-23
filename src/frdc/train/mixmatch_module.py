@@ -12,7 +12,14 @@ from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from torch.nn.functional import one_hot
 from torchmetrics.functional import accuracy
 
-from frdc.train.utils import mix_up, sharpen, wandb_hist
+from frdc.train.utils import (
+    mix_up,
+    sharpen,
+    wandb_hist,
+    x_standard_scale,
+    y_encode,
+    preprocess,
+)
 
 
 class MixMatchModule(LightningModule):
@@ -243,32 +250,6 @@ class MixMatchModule(LightningModule):
             want to export the model alongside the transformations.
         """
 
-        def x_trans_fn(x):
-            # Standard Scaler only accepts (n_samples, n_features),
-            # so we need to do some fancy reshaping.
-            # Note that moving dimensions then reshaping is different from just
-            # reshaping!
-
-            # Move Channel to the last dimension then transform
-            # B x C x H x W -> B x H x W x C
-            b, c, h, w = x.shape
-            x_ss = self.x_scaler.transform(
-                x.permute(0, 2, 3, 1).reshape(-1, c)
-            )
-
-            # Move Channel back to the second dimension
-            # B x H x W x C -> B x C x H x W
-            return torch.nan_to_num(
-                torch.from_numpy(x_ss.reshape(b, h, w, c))
-                .permute(0, 3, 1, 2)
-                .float()
-            )
-
-        def y_trans_fn(y):
-            return torch.from_numpy(
-                self.y_encoder.transform(np.array(y).reshape(-1, 1)).squeeze()
-            )
-
         # We need to handle the train and val dataloaders differently.
         # For training, the unlabelled data is returned while for validation,
         # the unlabelled data is just omitted.
@@ -278,20 +259,13 @@ class MixMatchModule(LightningModule):
             x_lab, y = batch
             x_unl = []
 
-        x_lab_trans = x_trans_fn(x_lab)
-        y_trans = y_trans_fn(y)
-        x_unl_trans = [x_trans_fn(x) for x in x_unl]
-
-        # Remove nan values from the batch
-        #   Ordinal Encoders can return a np.nan if the value is not in the
-        #   categories. We will remove that from the batch.
-        nan = ~torch.isnan(y_trans)
-        x_lab_trans = x_lab_trans[nan]
-        x_unl_trans = [x[nan] for x in x_unl_trans]
-        x_lab_trans = torch.nan_to_num(x_lab_trans)
-        x_unl_trans = [torch.nan_to_num(x) for x in x_unl_trans]
-        y_trans = y_trans[nan]
-
+        (x_lab_trans, y_trans), x_unl_trans = preprocess(
+            x_lab=x_lab,
+            y_lab=y,
+            x_unl=x_unl,
+            x_scaler=self.x_scaler,
+            y_encoder=self.y_encoder,
+        )
         if self.training:
             return (x_lab_trans, y_trans.long()), x_unl_trans
         else:
