@@ -76,6 +76,7 @@ def weak_aug(size: int):
             ToImage(),
             ToDtype(torch.float32, scale=True),
             Resize(size, antialias=True),
+            CenterCrop(size),
             RandomHorizontalFlip(),
             RandomVerticalFlip(),
             RandomApply([RandomRotation((90, 90))], p=0.5),
