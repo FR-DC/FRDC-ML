@@ -47,6 +47,7 @@ class FixMatchModule(LightningModule):
         self.y_encoder = y_encoder
         self.n_classes = n_classes
         self.save_hyperparameters()
+        self.automatic_optimization = False
 
     @abstractmethod
     def forward(self, x):
@@ -61,6 +62,8 @@ class FixMatchModule(LightningModule):
         return F.cross_entropy(unl_pred, unl)
 
     def training_step(self, batch, batch_idx):
+        opt = self.optimizers()
+        opt.zero_grad()
         (x_lbl, y_lbl), x_unls = batch
 
         self.log("train/x_lbl_mean", x_lbl.mean())
@@ -68,7 +71,8 @@ class FixMatchModule(LightningModule):
 
         wandb.log({"train/x_lbl": wandb_hist(y_lbl, self.n_classes)})
         loss_lbl = F.cross_entropy((y_lbl_pred := self(x_lbl)), y_lbl.long())
-        loss_unl = 0
+        self.manual_backward(loss_lbl)
+        opt.step()
 
         wandb.log(
             {
@@ -77,8 +81,10 @@ class FixMatchModule(LightningModule):
                 )
             }
         )
+        loss_unl = 0
 
         for x_weak, x_strong in x_unls:
+            opt.zero_grad()
             self.log("train/x0_unl_mean", x_weak[0].mean())
             self.log("train/x0_unl_stdev", x_weak[0].std())
             thres = 0.95
@@ -87,13 +93,18 @@ class FixMatchModule(LightningModule):
                 y_pred_weak_max, y_pred_weak_max_ix = torch.max(
                     y_pred_weak, dim=1
                 )
-                y_pred_strong = self(x_strong)
+            y_pred_strong = self(x_strong)
 
-            loss_unl += F.cross_entropy(
+            loss_unl_i = F.cross_entropy(
                 y_pred_strong[y_pred_weak_max >= thres],
                 y_pred_weak_max_ix[y_pred_weak_max >= thres],
                 reduction="sum",
             ) / (len(x_unls) * x_lbl.shape[0])
+
+            self.manual_backward(loss_unl_i)
+            opt.step()
+
+            loss_unl += loss_unl_i.detach().item()
 
             wandb.log(
                 {
@@ -103,10 +114,9 @@ class FixMatchModule(LightningModule):
                 }
             )
 
-        loss = loss_lbl + loss_unl
         self.log("train/ce_loss_lbl", loss_lbl)
         self.log("train/ce_loss_unl", loss_unl)
-        self.log("train/loss", loss)
+        self.log("train/loss", loss_lbl + loss_unl)
 
         # Evaluate train accuracy
         with torch.no_grad():
@@ -115,7 +125,6 @@ class FixMatchModule(LightningModule):
                 y_pred, y_lbl, task="multiclass", num_classes=y_pred.shape[1]
             )
             self.log("train/acc", acc, prog_bar=True)
-        return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
