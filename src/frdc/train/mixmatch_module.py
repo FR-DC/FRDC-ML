@@ -267,6 +267,6 @@ class MixMatchModule(LightningModule):
             y_encoder=self.y_encoder,
         )
         if self.training:
-            return (x_lab_trans, y_trans.long()), x_unl_trans
+            return (x_lab_trans, y_trans), x_unl_trans
         else:
-            return x_lab_trans, y_trans.long()
+            return x_lab_trans, y_trans
