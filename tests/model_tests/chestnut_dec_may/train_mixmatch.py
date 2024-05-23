@@ -22,10 +22,10 @@ from frdc.models.efficientnetb1 import EfficientNetB1MixMatchModule
 from frdc.train.frdc_datamodule import FRDCDataModule
 from frdc.utils.training import predict, plot_confusion_matrix
 from model_tests.utils import (
-    train_preprocess_augment,
-    train_unl_preprocess,
     val_preprocess,
     FRDCDatasetFlipped,
+    weak_aug,
+    n_weak_aug,
 )
 
 
@@ -62,11 +62,9 @@ def main(
 ):
     # Prepare the dataset
     im_size = 299
-    train_lab_ds = ds.chestnut_20201218(
-        transform=train_preprocess_augment(im_size)
-    )
+    train_lab_ds = ds.chestnut_20201218(transform=weak_aug(im_size))
     train_unl_ds = ds.chestnut_20201218.unlabelled(
-        transform=train_unl_preprocess(im_size, 2)
+        transform=n_weak_aug(im_size, 2)
     )
     val_ds = ds.chestnut_20210510_43m(transform=val_preprocess(im_size))
 

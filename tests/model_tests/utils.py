@@ -58,13 +58,18 @@ def val_preprocess(size: int):
     )(x)
 
 
-def train_preprocess_augment(size: int):
+def n_weak_aug(size, n_aug: int = 2):
+    return lambda x: (
+        [weak_aug(size)(x) for _ in range(n_aug)] if n_aug > 0 else None
+    )
+
+
+def weak_aug(size: int):
     return lambda x: Compose(
         [
             ToImage(),
             ToDtype(torch.float32, scale=True),
             Resize(size, antialias=True),
-            RandomCrop(size, pad_if_needed=False),
             RandomHorizontalFlip(),
             RandomVerticalFlip(),
             RandomApply([RandomRotation((90, 90))], p=0.5),
@@ -72,9 +77,15 @@ def train_preprocess_augment(size: int):
     )(x)
 
 
-def train_unl_preprocess(size, n_aug: int = 2):
-    return lambda x: (
-        [train_preprocess_augment(size)(x) for _ in range(n_aug)]
-        if n_aug > 0
-        else None
-    )
+def strong_aug(size: int):
+    return lambda x: Compose(
+        [
+            ToImage(),
+            ToDtype(torch.float32, scale=True),
+            Resize(size, antialias=True),
+            RandomCrop(size, pad_if_needed=False),  # Strong
+            RandomHorizontalFlip(),
+            RandomVerticalFlip(),
+            RandomApply([RandomRotation((90, 90))], p=0.5),
+        ]
+    )(x)
