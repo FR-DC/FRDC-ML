@@ -26,10 +26,11 @@ from model_tests.utils import (
     val_preprocess,
     FRDCDatasetFlipped,
     n_weak_strong_aug,
-    strong_aug,
     get_y_encoder,
     get_x_scaler,
+    weak_aug,
 )
+
 
 # Uncomment this to run the W&B monitoring locally
 # import os
@@ -41,14 +42,14 @@ def main(
     batch_size=32,
     epochs=10,
     train_iters=25,
-    unlabelled_factor=5,
+    unlabelled_factor=2,
     lr=1e-3,
     wandb_name="chestnut_dec_may",
     wandb_project="frdc",
 ):
     # Prepare the dataset
-    im_size = 299
-    train_lab_ds = ds.chestnut_20201218(transform=strong_aug(im_size))
+    im_size = 255
+    train_lab_ds = ds.chestnut_20201218(transform=weak_aug(im_size))
     train_unl_ds = ds.chestnut_20201218.unlabelled(
         transform=n_weak_strong_aug(im_size, unlabelled_factor)
     )
@@ -130,7 +131,7 @@ if __name__ == "__main__":
     BATCH_SIZE = 32
     EPOCHS = 50
     TRAIN_ITERS = 25
-    LR = 1e-3
+    LR = 3e-3
 
     torch.set_float32_matmul_precision("high")
     main(
