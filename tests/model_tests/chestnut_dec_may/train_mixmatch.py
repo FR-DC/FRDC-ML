@@ -25,6 +25,9 @@ from model_tests.utils import (
     val_preprocess,
     FRDCDatasetFlipped,
     n_strong_aug,
+    strong_aug,
+    get_y_encoder,
+    get_x_scaler,
 )
 
 
@@ -32,23 +35,6 @@ from model_tests.utils import (
 # import os
 #
 # os.environ["WANDB_MODE"] = "offline"
-
-
-def get_y_encoder(targets):
-    oe = OrdinalEncoder(
-        handle_unknown="use_encoded_value",
-        unknown_value=np.nan,
-    )
-    oe.fit(np.array(targets).reshape(-1, 1))
-    return oe
-
-
-def get_x_scaler(segments):
-    ss = StandardScaler()
-    ss.fit(
-        np.concatenate([segm.reshape(-1, segm.shape[-1]) for segm in segments])
-    )
-    return ss
 
 
 def main(
