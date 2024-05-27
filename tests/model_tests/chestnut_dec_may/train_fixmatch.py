@@ -139,6 +139,7 @@ if __name__ == "__main__":
         epochs=EPOCHS,
         train_iters=TRAIN_ITERS,
         lr=LR,
-        wandb_name="FixMatch EfficientNet 299x299",
+        unlabelled_factor=5,
+        wandb_name="FixMatch EfficientNet 255x255",
         wandb_project="frdc-dev",
     )
