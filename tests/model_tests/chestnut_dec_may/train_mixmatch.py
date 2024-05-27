@@ -61,7 +61,7 @@ def main(
 ):
     # Prepare the dataset
     im_size = 299
-    train_lab_ds = ds.chestnut_20201218(transform=n_strong_aug(im_size))
+    train_lab_ds = ds.chestnut_20201218(transform=strong_aug(im_size))
     train_unl_ds = ds.chestnut_20201218.unlabelled(
         transform=n_strong_aug(im_size, 2)
     )
