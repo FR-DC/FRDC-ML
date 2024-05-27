@@ -13,6 +13,7 @@ from torchmetrics.functional import accuracy
 from frdc.train.utils import (
     wandb_hist,
     preprocess,
+    mix_up,
 )
 
 
@@ -23,6 +24,7 @@ class FixMatchModule(LightningModule):
         x_scaler: StandardScaler,
         y_encoder: OrdinalEncoder,
         n_classes: int = 10,
+        unl_conf_threshold: float = 0.95,
     ):
         """PyTorch Lightning Module for MixMatch
 
@@ -39,6 +41,10 @@ class FixMatchModule(LightningModule):
 
         Args:
             n_classes: The number of classes in the dataset.
+            x_scaler: The StandardScaler to use for the data.
+            y_encoder: The OrdinalEncoder to use for the labels.
+            unl_conf_threshold: The confidence threshold for unlabelled data
+                to be considered correctly labelled.
         """
 
         super().__init__()
@@ -46,6 +52,7 @@ class FixMatchModule(LightningModule):
         self.x_scaler = x_scaler
         self.y_encoder = y_encoder
         self.n_classes = n_classes
+        self.unl_conf_threshold = unl_conf_threshold
         self.save_hyperparameters()
         self.automatic_optimization = False
 
@@ -87,17 +94,17 @@ class FixMatchModule(LightningModule):
             opt.zero_grad()
             self.log("train/x0_unl_mean", x_weak[0].mean())
             self.log("train/x0_unl_stdev", x_weak[0].std())
-            thres = 0.95
             with torch.no_grad():
                 y_pred_weak = self(x_weak)
                 y_pred_weak_max, y_pred_weak_max_ix = torch.max(
                     y_pred_weak, dim=1
                 )
-            y_pred_strong = self(x_strong)
+                is_confident = y_pred_weak_max >= self.unl_conf_threshold
 
+            y_pred_strong = self(x_strong[is_confident])
             loss_unl_i = F.cross_entropy(
-                y_pred_strong[y_pred_weak_max >= thres],
-                y_pred_weak_max_ix[y_pred_weak_max >= thres],
+                y_pred_strong,
+                y_pred_weak_max_ix[is_confident],
                 reduction="sum",
             ) / (len(x_unls) * x_lbl.shape[0])
 
