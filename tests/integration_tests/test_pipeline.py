@@ -2,15 +2,26 @@ import logging
 
 import lightning as pl
 import numpy as np
+import pytest
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 
-from frdc.models.efficientnetb1 import EfficientNetB1MixMatchModule
+from frdc.models.efficientnetb1 import (
+    EfficientNetB1MixMatchModule,
+    EfficientNetB1FixMatchModule,
+)
 from frdc.train.frdc_datamodule import FRDCDataModule
 
 BATCH_SIZE = 3
 
 
-def test_manual_segmentation_pipeline(ds):
+@pytest.mark.parametrize(
+    "model_fn",
+    [
+        EfficientNetB1FixMatchModule,
+        EfficientNetB1MixMatchModule,
+    ],
+)
+def test_manual_segmentation_pipeline(model_fn, ds):
     """Manually segment the image according to bounds.csv,
     then train a model on it."""
 
@@ -31,7 +42,7 @@ def test_manual_segmentation_pipeline(ds):
     ss = StandardScaler()
     ss.fit(ds.ar.reshape(-1, ds.ar.shape[-1]))
 
-    m = EfficientNetB1MixMatchModule(
+    m = model_fn(
         in_channels=ds.ar.shape[-1],
         n_classes=n_classes,
         lr=1e-3,
@@ -39,7 +50,7 @@ def test_manual_segmentation_pipeline(ds):
         y_encoder=oe,
     )
 
-    trainer = pl.Trainer(fast_dev_run=True)
+    trainer = pl.Trainer(fast_dev_run=True, accelerator="cpu")
     trainer.fit(m, datamodule=dm)
 
     val_loss = trainer.validate(m, datamodule=dm)[0]["val/ce_loss"]
