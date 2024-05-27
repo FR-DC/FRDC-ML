@@ -137,6 +137,6 @@ if __name__ == "__main__":
         epochs=EPOCHS,
         train_iters=TRAIN_ITERS,
         lr=LR,
-        wandb_name="EfficientNet 299x299",
+        wandb_name="EfficientNet MixMatch 299x299",
         wandb_project="frdc-dev",
     )
