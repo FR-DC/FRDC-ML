@@ -44,9 +44,16 @@ def main(
     train_iters=25,
     unlabelled_factor=2,
     lr=1e-3,
+    accelerator="gpu",
+    wandb_active: bool = True,
     wandb_name="chestnut_dec_may",
     wandb_project="frdc",
 ):
+    if not wandb_active:
+        import os
+
+        os.environ["WANDB_MODE"] = "offline"
+
     # Prepare the dataset
     im_size = 255
     train_lab_ds = ds.chestnut_20201218(transform=weak_aug(im_size))
@@ -68,7 +75,7 @@ def main(
     trainer = pl.Trainer(
         max_epochs=epochs,
         deterministic=True,
-        accelerator="gpu",
+        accelerator=accelerator,
         log_every_n_steps=4,
         callbacks=[
             # Stop training if the validation loss doesn't improve for 4 epochs
