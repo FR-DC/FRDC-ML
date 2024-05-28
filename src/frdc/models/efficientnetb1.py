@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Dict, Any
 
 import torch
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
@@ -9,15 +10,38 @@ from torchvision.models import (
     EfficientNet_B1_Weights,
 )
 
+from frdc.models.utils import on_save_checkpoint, on_load_checkpoint
 from frdc.train.fixmatch_module import FixMatchModule
 from frdc.train.mixmatch_module import MixMatchModule
 from frdc.utils.ema import EMA
 
 
-def adapt_efficient_multi_channel(
-    eff: EfficientNet,
-    in_channels: int,
-) -> EfficientNet:
+def efficientnet_b1_backbone(in_channels: int, frozen: bool):
+    """Get the N Channel adapted EfficientNet B1 model without classifier.
+
+    Args:
+        in_channels: The number of input channels.
+        frozen: Whether to freeze the base model.
+
+    Returns:
+        The EfficientNet B1 model.
+    """
+    eff = efficientnet_b1(weights=EfficientNet_B1_Weights.IMAGENET1K_V2)
+
+    # Adapt the first layer to accept the number of channels
+    eff = adapt_n_in_channel(eff, in_channels)
+
+    # Remove the final layer
+    eff.classifier = nn.Identity()
+
+    if frozen:
+        for param in eff.parameters():
+            param.requires_grad = False
+
+    return eff
+
+
+def adapt_n_in_channel(eff: EfficientNet, in_channels: int) -> EfficientNet:
     """Adapt the EfficientNet model to accept a different number of
     input channels.
 
@@ -42,7 +66,7 @@ def adapt_efficient_multi_channel(
     )
     new_conv.weight.data[:, :3] = old_conv.weight.data
     new_conv.weight.data[:, 3:] = old_conv.weight.data[:, 1:2].repeat(
-        1, 5, 1, 1
+        1, in_channels - 3, 1, 1
     )
     eff.features[0][0] = new_conv
 
@@ -50,7 +74,7 @@ def adapt_efficient_multi_channel(
 
 
 class EfficientNetB1MixMatchModule(MixMatchModule):
-    MIN_SIZE = 320
+    MIN_SIZE = 255
     EFF_OUT_DIMS = 1280
 
     def __init__(
@@ -78,7 +102,7 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
             frozen: Whether to freeze the base model.
 
         Notes:
-            - Min input size: 320 x 320
+            - Min input size: 255 x 255
         """
         self.lr = lr
         self.weight_decay = weight_decay
@@ -91,20 +115,7 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
             mix_beta_alpha=0.75,
         )
 
-        self.eff = efficientnet_b1(
-            weights=EfficientNet_B1_Weights.IMAGENET1K_V2
-        )
-
-        # Remove the final layer
-        self.eff.classifier = nn.Identity()
-
-        if frozen:
-            for param in self.eff.parameters():
-                param.requires_grad = False
-
-        # Adapt the first layer to accept the number of channels
-        self.eff = adapt_efficient_multi_channel(self.eff, in_channels)
-
+        self.eff = efficientnet_b1_backbone(in_channels, frozen)
         self.fc = nn.Sequential(
             nn.Linear(self.EFF_OUT_DIMS, n_classes),
             nn.Softmax(dim=1),
@@ -136,9 +147,24 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
             self.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
 
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        # TODO: MixMatch's saving is a bit complicated due to the dependency
+        #       on the EMA model. This only saves the FC for both the
+        #       main model and the EMA model.
+        #       This may be the reason certain things break when loading
+        if checkpoint["hyper_parameters"]["frozen"]:
+            on_save_checkpoint(
+                self,
+                checkpoint,
+                saved_module_prefixes=("_ema_model.fc.", "fc."),
+            )
+
+    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        on_load_checkpoint(self, checkpoint)
+
 
 class EfficientNetB1FixMatchModule(FixMatchModule):
-    MIN_SIZE = 320
+    MIN_SIZE = 255
     EFF_OUT_DIMS = 1280
 
     def __init__(
@@ -164,7 +190,7 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
             frozen: Whether to freeze the base model.
 
         Notes:
-            - Min input size: 320 x 320
+            - Min input size: 255 x 255
         """
         self.lr = lr
         self.weight_decay = weight_decay
@@ -175,19 +201,7 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
             y_encoder=y_encoder,
         )
 
-        self.eff = efficientnet_b1(
-            weights=EfficientNet_B1_Weights.IMAGENET1K_V2
-        )
-
-        # Remove the final layer
-        self.eff.classifier = nn.Identity()
-
-        if frozen:
-            for param in self.eff.parameters():
-                param.requires_grad = False
-
-        # Adapt the first layer to accept the number of channels
-        self.eff = adapt_efficient_multi_channel(self.eff, in_channels)
+        self.eff = efficientnet_b1_backbone(in_channels, frozen)
 
         self.fc = nn.Sequential(
             nn.Linear(self.EFF_OUT_DIMS, n_classes),
@@ -202,3 +216,14 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
         return torch.optim.Adam(
             self.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
+
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        if checkpoint["hyper_parameters"]["frozen"]:
+            on_save_checkpoint(
+                self,
+                checkpoint,
+                saved_module_prefixes=("fc.",),
+            )
+
+    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        on_load_checkpoint(self, checkpoint)
