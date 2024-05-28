@@ -1,9 +1,12 @@
 import logging
+from pathlib import Path
 
 import lightning as pl
 import numpy as np
 import pytest
+import torch
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+from torch import nn
 
 from frdc.models.efficientnetb1 import (
     EfficientNetB1MixMatchModule,
@@ -48,6 +51,7 @@ def test_manual_segmentation_pipeline(model_fn, ds):
         lr=1e-3,
         x_scaler=ss,
         y_encoder=oe,
+        frozen=True,
     )
 
     trainer = pl.Trainer(fast_dev_run=True, accelerator="cpu")
@@ -55,3 +59,26 @@ def test_manual_segmentation_pipeline(model_fn, ds):
 
     val_loss = trainer.validate(m, datamodule=dm)[0]["val/ce_loss"]
     logging.debug(f"Validation score: {val_loss:.2%}")
+
+    # Save the model
+    model_fp = Path(__file__).parent / f"{model_fn.__name__}_model.ckpt"
+    trainer.save_checkpoint(model_fp)
+    logging.debug(f"Model saved to {model_fp}")
+
+    # Attempt to load the model
+    m_load = model_fn.load_from_checkpoint(model_fp)
+    m_load.eval()
+    logging.debug("Model loaded successfully")
+
+    any_diff = False
+    # Check which modules differ
+    for (m_p_name, m_p), (m_l_name, m_l) in zip(
+        m.named_parameters(), m_load.named_parameters()
+    ):
+        if not torch.allclose(m_p, m_l):
+            logging.warning(f"Parameter {m_p_name}")
+            logging.warning(f"Original: {m_p}")
+            logging.warning(f"Loaded: {m_l}")
+            any_diff = True
+
+    assert not any_diff, "Loaded model parameters differ from original"
