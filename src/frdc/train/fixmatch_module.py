@@ -13,7 +13,6 @@ from torchmetrics.functional import accuracy
 from frdc.train.utils import (
     wandb_hist,
     preprocess,
-    mix_up,
 )
 
 
@@ -149,6 +148,7 @@ class FixMatchModule(LightningModule):
         acc = accuracy(
             y_pred, y, task="multiclass", num_classes=y_pred.shape[1]
         )
+
         self.log("val/ce_loss", loss)
         self.log("val/acc", acc, prog_bar=True)
         return loss
