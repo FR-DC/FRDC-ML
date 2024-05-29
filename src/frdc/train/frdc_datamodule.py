@@ -66,6 +66,8 @@ class FRDCDataModule(LightningDataModule):
     def __post_init__(self):
         super().__init__()
 
+        # This provides a failsafe interface if somehow someone used the
+        # labelled dataset as the unlabelled dataset.
         if isinstance(self.train_unl_ds, FRDCDataset):
             self.train_unl_ds.__class__ = FRDCUnlabelledDataset
 
