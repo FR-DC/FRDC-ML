@@ -257,8 +257,8 @@ class MixMatchModule(LightningModule):
             x_unl = None
 
         return preprocess(
-            x_lab=x_lbl,
-            y_lab=y_lbl,
+            x_lbl=x_lbl,
+            y_lbl=y_lbl,
             x_scaler=self.x_scaler,
             y_encoder=self.y_encoder,
             x_unl=x_unl,
