@@ -68,9 +68,9 @@ class FixMatchModule(LightningModule):
         return F.cross_entropy(unl_pred, unl)
 
     def training_step(self, batch, batch_idx):
+        (x_lbl, y_lbl), x_unls = batch
         opt = self.optimizers()
         opt.zero_grad()
-        (x_lbl, y_lbl), x_unls = batch
 
         self.log("train/x_lbl_mean", x_lbl.mean())
         self.log("train/x_lbl_stdev", x_lbl.std())
@@ -133,7 +133,8 @@ class FixMatchModule(LightningModule):
             self.log("train/acc", acc, prog_bar=True)
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
+        # The batch outputs x_unls due to our on_before_batch_transfer
+        (x, y), _x_unls = batch
         wandb.log({"val/y_lbl": wandb_hist(y, self.n_classes)})
         y_pred = self(x)
         wandb.log(
@@ -154,7 +155,8 @@ class FixMatchModule(LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        # The batch outputs x_unls due to our on_before_batch_transfer
+        (x, y), _x_unls = batch
         y_pred = self(x)
         loss = F.cross_entropy(y_pred, y.long())
 
@@ -166,7 +168,7 @@ class FixMatchModule(LightningModule):
         return loss
 
     def predict_step(self, batch, *args, **kwargs) -> Any:
-        x, y = batch
+        (x, y), _x_unls = batch
         y_pred = self(x)
         y_true_str = self.y_encoder.inverse_transform(
             y.cpu().numpy().reshape(-1, 1)
@@ -190,23 +192,16 @@ class FixMatchModule(LightningModule):
             want to export the model alongside the transformations.
         """
 
-        # We need to handle the train and val dataloaders differently.
-        # For training, the unlabelled data is returned while for validation,
-        # the unlabelled data is just omitted.
         if self.training:
-            (x_lab, y), x_unl = batch
+            (x_lbl, y_lbl), x_unl = batch
         else:
-            x_lab, y = batch
-            x_unl = []
+            x_lbl, y_lbl = batch
+            x_unl = None
 
-        (x_lab_trans, y_trans), x_unl_trans = preprocess(
-            x_lab=x_lab,
-            y_lab=y,
-            x_unl=x_unl,
+        return preprocess(
+            x_lab=x_lbl,
+            y_lab=y_lbl,
             x_scaler=self.x_scaler,
             y_encoder=self.y_encoder,
+            x_unl=x_unl,
         )
-        if self.training:
-            return (x_lab_trans, y_trans), x_unl_trans
-        else:
-            return x_lab_trans, y_trans

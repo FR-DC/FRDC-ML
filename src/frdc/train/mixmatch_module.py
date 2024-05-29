@@ -250,23 +250,16 @@ class MixMatchModule(LightningModule):
             want to export the model alongside the transformations.
         """
 
-        # We need to handle the train and val dataloaders differently.
-        # For training, the unlabelled data is returned while for validation,
-        # the unlabelled data is just omitted.
         if self.training:
-            (x_lab, y), x_unl = batch
+            (x_lbl, y_lbl), x_unl = batch
         else:
-            x_lab, y = batch
-            x_unl = []
+            x_lbl, y_lbl = batch
+            x_unl = None
 
-        (x_lab_trans, y_trans), x_unl_trans = preprocess(
-            x_lab=x_lab,
-            y_lab=y,
-            x_unl=x_unl,
+        return preprocess(
+            x_lab=x_lbl,
+            y_lab=y_lbl,
             x_scaler=self.x_scaler,
             y_encoder=self.y_encoder,
+            x_unl=x_unl,
         )
-        if self.training:
-            return (x_lab_trans, y_trans), x_unl_trans
-        else:
-            return x_lab_trans, y_trans
