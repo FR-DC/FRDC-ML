@@ -23,7 +23,7 @@ from frdc.train.frdc_datamodule import FRDCDataModule
 from frdc.utils.training import predict, plot_confusion_matrix
 from model_tests.utils import (
     val_preprocess,
-    FRDCDatasetFlipped,
+    FRDCDatasetStaticEval,
     n_strong_aug,
     strong_aug,
     get_y_encoder,
@@ -107,7 +107,7 @@ def main(
         )
 
     y_true, y_pred = predict(
-        ds=FRDCDatasetFlipped(
+        ds=FRDCDatasetStaticEval(
             "chestnut_nature_park",
             "20210510",
             "90deg43m85pct255deg",
