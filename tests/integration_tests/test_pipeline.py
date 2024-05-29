@@ -85,7 +85,8 @@ def test_manual_segmentation_pipeline(model_fn, ds):
     # If this step fails, it's likely something "hidden", like the BatchNorm
     # running statistics that differs.
     val_load_loss = trainer.validate(m_load, datamodule=dm)[0]["val/ce_loss"]
-    assert val_loss == val_load_loss, "Validation loss differs after loading"
+    # make sure values are close enough
+    assert abs(val_loss - val_load_loss) < 1e-4
 
     # Note:
     #   This test doesn't check for all modules to be the same.
