@@ -146,7 +146,7 @@ def y_encode(y_encoder: OrdinalEncoder, y: torch.Tensor) -> torch.Tensor:
         y: The labels to encode.
     """
     return torch.from_numpy(
-        y_encoder.transform(np.array(y).reshape(-1, 1)).squeeze()
+        y_encoder.transform(np.array(y).reshape(-1, 1))[..., 0]
     )
 
 
