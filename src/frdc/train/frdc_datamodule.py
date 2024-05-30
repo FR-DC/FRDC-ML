@@ -66,53 +66,45 @@ class FRDCDataModule(LightningDataModule):
     def __post_init__(self):
         super().__init__()
 
+        # This provides a failsafe interface if somehow someone used the
+        # labelled dataset as the unlabelled dataset.
         if isinstance(self.train_unl_ds, FRDCDataset):
             self.train_unl_ds.__class__ = FRDCUnlabelledDataset
 
     def train_dataloader(self):
-        num_samples = self.batch_size * self.train_iters
+        n_samples = self.batch_size * self.train_iters
         if self.sampling_strategy == "stratified":
-            sampler = lambda ds: RandomStratifiedSampler(
-                ds.targets, num_samples=num_samples, replacement=True
+            sampler_fn = lambda ds: RandomStratifiedSampler(
+                ds.targets,
+                num_samples=n_samples,
             )
         elif self.sampling_strategy == "random":
-            sampler = lambda ds: RandomSampler(
-                ds, num_samples=num_samples, replacement=True
+            sampler_fn = lambda ds: RandomSampler(
+                ds,
+                num_samples=n_samples,
             )
         else:
-            raise ValueError(
-                f"Invalid sampling strategy: {self.sampling_strategy}"
-            )
+            raise ValueError(f"Invalid strategy: {self.sampling_strategy}")
 
         lab_dl = DataLoader(
             self.train_lab_ds,
             batch_size=self.batch_size,
-            sampler=sampler(self.train_lab_ds),
+            sampler=sampler_fn(self.train_lab_ds),
         )
         unl_dl = (
             DataLoader(
                 self.train_unl_ds,
                 batch_size=self.batch_size,
-                sampler=sampler(self.train_unl_ds),
+                sampler=sampler_fn(self.train_unl_ds),
             )
             if self.train_unl_ds is not None
             # This is a hacky way to create an empty dataloader.
-            # The size should be the same as the labelled dataloader so that
-            #  the iterator doesn't prematurely stop.
-            else DataLoader(
-                empty := [[] for _ in range(len(self.train_lab_ds))],
-                batch_size=self.batch_size,
-                sampler=RandomSampler(
-                    empty,
-                    num_samples=num_samples,
-                ),
-            )
+            # The size should be the same or larger than the
+            # labelled dataloader so the iterator doesn't prematurely stop.
+            else DataLoader([[] for _ in range(len(lab_dl))])
         )
 
         return [lab_dl, unl_dl]
 
     def val_dataloader(self):
-        return DataLoader(
-            self.val_ds,
-            batch_size=self.batch_size,
-        )
+        return DataLoader(self.val_ds, batch_size=self.batch_size)
