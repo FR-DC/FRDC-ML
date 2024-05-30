@@ -194,7 +194,7 @@ class MixMatchModule(LightningModule):
         self.update_ema()
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
+        (x, y), _x_unls = batch
         wandb.log({"val/y_lbl": wandb_hist(y, self.n_classes)})
         y_pred = self.ema_model(x)
         wandb.log(
@@ -214,7 +214,7 @@ class MixMatchModule(LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        (x, y), _x_unls = batch
         y_pred = self.ema_model(x)
         loss = F.cross_entropy(y_pred, y.long())
 
@@ -226,7 +226,7 @@ class MixMatchModule(LightningModule):
         return loss
 
     def predict_step(self, batch, *args, **kwargs) -> Any:
-        x, y = batch
+        (x, y), _x_unls = batch
         y_pred = self.ema_model(x)
         y_true_str = self.y_encoder.inverse_transform(
             y.cpu().numpy().reshape(-1, 1)
