@@ -1,4 +1,4 @@
-""" Tests for the InceptionV3 model on the Chestnut Nature Park dataset.
+""" Tests for the model on the Chestnut Nature Park dataset.
 
 This test is done by training a model on the 20201218 dataset, then testing on
 the 20210510 dataset.
@@ -22,10 +22,12 @@ from frdc.models.efficientnetb1 import EfficientNetB1MixMatchModule
 from frdc.train.frdc_datamodule import FRDCDataModule
 from frdc.utils.training import predict, plot_confusion_matrix
 from model_tests.utils import (
-    train_preprocess_augment,
-    train_unl_preprocess,
     val_preprocess,
-    FRDCDatasetFlipped,
+    FRDCDatasetStaticEval,
+    n_strong_aug,
+    strong_aug,
+    get_y_encoder,
+    get_x_scaler,
 )
 
 
@@ -33,23 +35,6 @@ from model_tests.utils import (
 # import os
 #
 # os.environ["WANDB_MODE"] = "offline"
-
-
-def get_y_encoder(targets):
-    oe = OrdinalEncoder(
-        handle_unknown="use_encoded_value",
-        unknown_value=np.nan,
-    )
-    oe.fit(np.array(targets).reshape(-1, 1))
-    return oe
-
-
-def get_x_scaler(segments):
-    ss = StandardScaler()
-    ss.fit(
-        np.concatenate([segm.reshape(-1, segm.shape[-1]) for segm in segments])
-    )
-    return ss
 
 
 def main(
@@ -62,11 +47,9 @@ def main(
 ):
     # Prepare the dataset
     im_size = 299
-    train_lab_ds = ds.chestnut_20201218(
-        transform=train_preprocess_augment(im_size)
-    )
+    train_lab_ds = ds.chestnut_20201218(transform=strong_aug(im_size))
     train_unl_ds = ds.chestnut_20201218.unlabelled(
-        transform=train_unl_preprocess(im_size, 2)
+        transform=n_strong_aug(im_size, 2)
     )
     val_ds = ds.chestnut_20210510_43m(transform=val_preprocess(im_size))
 
@@ -124,7 +107,7 @@ def main(
         )
 
     y_true, y_pred = predict(
-        ds=FRDCDatasetFlipped(
+        ds=FRDCDatasetStaticEval(
             "chestnut_nature_park",
             "20210510",
             "90deg43m85pct255deg",
@@ -154,6 +137,6 @@ if __name__ == "__main__":
         epochs=EPOCHS,
         train_iters=TRAIN_ITERS,
         lr=LR,
-        wandb_name="EfficientNet 299x299",
+        wandb_name="EfficientNet MixMatch 299x299",
         wandb_project="frdc-dev",
     )
