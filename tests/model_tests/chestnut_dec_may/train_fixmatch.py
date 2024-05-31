@@ -136,7 +136,7 @@ def main(
 
 if __name__ == "__main__":
     BATCH_SIZE = 32
-    EPOCHS = 50
+    EPOCHS = 10
     TRAIN_ITERS = 25
     LR = 3e-3
 
