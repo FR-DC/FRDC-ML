@@ -8,7 +8,6 @@ from label_studio_sdk.data_manager import Filters, Column, Type, Operator
 
 from frdc.conf import LABEL_STUDIO_CLIENT
 
-
 logger = logging.getLogger(__name__)
 
 

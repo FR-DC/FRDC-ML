@@ -3,7 +3,6 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Any
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
@@ -16,8 +15,6 @@ from frdc.train.utils import (
     mix_up,
     sharpen,
     wandb_hist,
-    x_standard_scale,
-    y_encode,
     preprocess,
 )
 

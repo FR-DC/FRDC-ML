@@ -15,7 +15,6 @@ from lightning.pytorch.callbacks import (
     EarlyStopping,
 )
 from lightning.pytorch.loggers import WandbLogger
-from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 
 from frdc.load.preset import FRDCDatasetPreset as ds
 from frdc.models.efficientnetb1 import EfficientNetB1MixMatchModule
