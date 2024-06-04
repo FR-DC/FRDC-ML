@@ -1,5 +1,3 @@
-# Jupyter Notebooks
-
 ## FRRD-60: Consistency as a feature discriminator for Novelty Detection
 
 Hypothesis: Consistency can be used as a measure to discriminate between normal
