@@ -3,7 +3,6 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Any
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
@@ -16,8 +15,6 @@ from frdc.train.utils import (
     mix_up,
     sharpen,
     wandb_hist,
-    x_standard_scale,
-    y_encode,
     preprocess,
 )
 
@@ -194,7 +191,7 @@ class MixMatchModule(LightningModule):
         self.update_ema()
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
+        (x, y), _x_unls = batch
         wandb.log({"val/y_lbl": wandb_hist(y, self.n_classes)})
         y_pred = self.ema_model(x)
         wandb.log(
@@ -214,7 +211,7 @@ class MixMatchModule(LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        (x, y), _x_unls = batch
         y_pred = self.ema_model(x)
         loss = F.cross_entropy(y_pred, y.long())
 
@@ -226,7 +223,7 @@ class MixMatchModule(LightningModule):
         return loss
 
     def predict_step(self, batch, *args, **kwargs) -> Any:
-        x, y = batch
+        (x, y), _x_unls = batch
         y_pred = self.ema_model(x)
         y_true_str = self.y_encoder.inverse_transform(
             y.cpu().numpy().reshape(-1, 1)
@@ -250,23 +247,16 @@ class MixMatchModule(LightningModule):
             want to export the model alongside the transformations.
         """
 
-        # We need to handle the train and val dataloaders differently.
-        # For training, the unlabelled data is returned while for validation,
-        # the unlabelled data is just omitted.
         if self.training:
-            (x_lab, y), x_unl = batch
+            (x_lbl, y_lbl), x_unl = batch
         else:
-            x_lab, y = batch
-            x_unl = []
+            x_lbl, y_lbl = batch
+            x_unl = None
 
-        (x_lab_trans, y_trans), x_unl_trans = preprocess(
-            x_lab=x_lab,
-            y_lab=y,
-            x_unl=x_unl,
+        return preprocess(
+            x_lbl=x_lbl,
+            y_lbl=y_lbl,
             x_scaler=self.x_scaler,
             y_encoder=self.y_encoder,
+            x_unl=x_unl,
         )
-        if self.training:
-            return (x_lab_trans, y_trans), x_unl_trans
-        else:
-            return x_lab_trans, y_trans

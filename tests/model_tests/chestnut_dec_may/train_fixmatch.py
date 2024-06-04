@@ -109,9 +109,9 @@ def main(
 
     trainer.fit(m, datamodule=dm)
 
-    with open(Path(__file__).parent / "report.md", "w") as f:
+    with open(Path(__file__).parent / "report.md", "a+") as f:
         f.write(
-            f"# Chestnut Nature Park (Dec 2020 vs May 2021)\n"
+            f"# Chestnut Nature Park (Dec 2020 vs May 2021) FixMatch\n"
             f"- Results: [WandB Report]({wandb.run.get_url()})"
         )
 
@@ -136,7 +136,7 @@ def main(
 
 if __name__ == "__main__":
     BATCH_SIZE = 32
-    EPOCHS = 50
+    EPOCHS = 10
     TRAIN_ITERS = 25
     LR = 3e-3
 

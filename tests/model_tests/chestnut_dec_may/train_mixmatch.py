@@ -15,7 +15,6 @@ from lightning.pytorch.callbacks import (
     EarlyStopping,
 )
 from lightning.pytorch.loggers import WandbLogger
-from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 
 from frdc.load.preset import FRDCDatasetPreset as ds
 from frdc.models.efficientnetb1 import EfficientNetB1MixMatchModule
@@ -100,9 +99,9 @@ def main(
 
     trainer.fit(m, datamodule=dm)
 
-    with open(Path(__file__).parent / "report.md", "w") as f:
+    with open(Path(__file__).parent / "report.md", "a+") as f:
         f.write(
-            f"# Chestnut Nature Park (Dec 2020 vs May 2021)\n"
+            f"# Chestnut Nature Park (Dec 2020 vs May 2021) MixMatch\n"
             f"- Results: [WandB Report]({wandb.run.get_url()})"
         )
 
@@ -127,7 +126,7 @@ def main(
 
 if __name__ == "__main__":
     BATCH_SIZE = 32
-    EPOCHS = 50
+    EPOCHS = 15
     TRAIN_ITERS = 25
     LR = 1e-3
 
