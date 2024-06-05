@@ -3,7 +3,6 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Any
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
@@ -11,6 +10,13 @@ from lightning import LightningModule
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from torch.nn.functional import one_hot
 from torchmetrics.functional import accuracy
+
+from frdc.train.utils import (
+    mix_up,
+    sharpen,
+    wandb_hist,
+    preprocess,
+)
 
 
 class MixMatchModule(LightningModule):
@@ -86,47 +92,6 @@ class MixMatchModule(LightningModule):
     def loss_unl(unl_pred: torch.Tensor, unl: torch.Tensor):
         return torch.mean((torch.softmax(unl_pred, dim=1) - unl) ** 2)
 
-    @staticmethod
-    def mix_up(
-        x: torch.Tensor,
-        y: torch.Tensor,
-        alpha: float,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Mix up the data
-
-        Args:
-            x: The data to mix up.
-            y: The labels to mix up.
-            alpha: The alpha to use for the beta distribution.
-
-        Returns:
-            The mixed up data and labels.
-        """
-        ratio = np.random.beta(alpha, alpha)
-        ratio = max(ratio, 1 - ratio)
-
-        shuf_idx = torch.randperm(x.size(0))
-
-        x_mix = ratio * x + (1 - ratio) * x[shuf_idx]
-        y_mix = ratio * y + (1 - ratio) * y[shuf_idx]
-        return x_mix, y_mix
-
-    @staticmethod
-    def sharpen(y: torch.Tensor, temp: float) -> torch.Tensor:
-        """Sharpen the predictions by raising them to the power of 1 / temp
-
-        Args:
-            y: The predictions to sharpen.
-            temp: The temperature to use.
-
-        Returns:
-            The probability-normalized sharpened predictions
-        """
-        y_sharp = y ** (1 / temp)
-        # Sharpening will change the sum of the predictions.
-        y_sharp /= y_sharp.sum(dim=1, keepdim=True)
-        return y_sharp
-
     def guess_labels(
         self,
         x_unls: list[torch.Tensor],
@@ -154,7 +119,7 @@ class MixMatchModule(LightningModule):
         self.log("train/x_lbl_mean", x_lbl.mean())
         self.log("train/x_lbl_stdev", x_lbl.std())
 
-        wandb.log({"train/x_lbl": self.wandb_hist(y_lbl, self.n_classes)})
+        wandb.log({"train/x_lbl": wandb_hist(y_lbl, self.n_classes)})
         y_lbl_ohe = one_hot(y_lbl.long(), num_classes=self.n_classes)
 
         # If x_unls is Truthy, then we are using MixMatch.
@@ -165,11 +130,11 @@ class MixMatchModule(LightningModule):
             self.log("train/x0_unl_stdev", x_unls[0].std())
             with torch.no_grad():
                 y_unl = self.guess_labels(x_unls=x_unls)
-                y_unl = self.sharpen(y_unl, self.sharpen_temp)
+                y_unl = sharpen(y_unl, self.sharpen_temp)
 
             x = torch.cat([x_lbl, *x_unls], dim=0)
             y = torch.cat([y_lbl_ohe, *(y_unl,) * len(x_unls)], dim=0)
-            x_mix, y_mix = self.mix_up(x, y, self.mix_beta_alpha)
+            x_mix, y_mix = mix_up(x, y, self.mix_beta_alpha)
 
             # This had interleaving, but it was removed as it's not
             # significantly better
@@ -184,14 +149,14 @@ class MixMatchModule(LightningModule):
             loss_unl = self.loss_unl(y_mix_unl_pred, y_mix_unl)
             wandb.log(
                 {
-                    "train/y_lbl_pred": self.wandb_hist(
+                    "train/y_lbl_pred": wandb_hist(
                         torch.argmax(y_mix_lbl_pred, dim=1), self.n_classes
                     )
                 }
             )
             wandb.log(
                 {
-                    "train/y_unl_pred": self.wandb_hist(
+                    "train/y_unl_pred": wandb_hist(
                         torch.argmax(y_mix_unl_pred, dim=1), self.n_classes
                     )
                 }
@@ -225,20 +190,13 @@ class MixMatchModule(LightningModule):
     def on_after_backward(self) -> None:
         self.update_ema()
 
-    @staticmethod
-    def wandb_hist(x: torch.Tensor, num_bins: int) -> wandb.Histogram:
-        return wandb.Histogram(
-            torch.flatten(x).detach().cpu().tolist(),
-            num_bins=num_bins,
-        )
-
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        wandb.log({"val/y_lbl": self.wandb_hist(y, self.n_classes)})
+        (x, y), _x_unls = batch
+        wandb.log({"val/y_lbl": wandb_hist(y, self.n_classes)})
         y_pred = self.ema_model(x)
         wandb.log(
             {
-                "val/y_lbl_pred": self.wandb_hist(
+                "val/y_lbl_pred": wandb_hist(
                     torch.argmax(y_pred, dim=1), self.n_classes
                 )
             }
@@ -253,7 +211,7 @@ class MixMatchModule(LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        (x, y), _x_unls = batch
         y_pred = self.ema_model(x)
         loss = F.cross_entropy(y_pred, y.long())
 
@@ -265,7 +223,7 @@ class MixMatchModule(LightningModule):
         return loss
 
     def predict_step(self, batch, *args, **kwargs) -> Any:
-        x, y = batch
+        (x, y), _x_unls = batch
         y_pred = self.ema_model(x)
         y_true_str = self.y_encoder.inverse_transform(
             y.cpu().numpy().reshape(-1, 1)
@@ -289,56 +247,16 @@ class MixMatchModule(LightningModule):
             want to export the model alongside the transformations.
         """
 
-        def x_trans_fn(x):
-            # Standard Scaler only accepts (n_samples, n_features),
-            # so we need to do some fancy reshaping.
-            # Note that moving dimensions then reshaping is different from just
-            # reshaping!
-
-            # Move Channel to the last dimension then transform
-            # B x C x H x W -> B x H x W x C
-            b, c, h, w = x.shape
-            x_ss = self.x_scaler.transform(
-                x.permute(0, 2, 3, 1).reshape(-1, c)
-            )
-
-            # Move Channel back to the second dimension
-            # B x H x W x C -> B x C x H x W
-            return torch.nan_to_num(
-                torch.from_numpy(x_ss.reshape(b, h, w, c))
-                .permute(0, 3, 1, 2)
-                .float()
-            )
-
-        def y_trans_fn(y):
-            return torch.from_numpy(
-                self.y_encoder.transform(np.array(y).reshape(-1, 1)).squeeze()
-            )
-
-        # We need to handle the train and val dataloaders differently.
-        # For training, the unlabelled data is returned while for validation,
-        # the unlabelled data is just omitted.
         if self.training:
-            (x_lab, y), x_unl = batch
+            (x_lbl, y_lbl), x_unl = batch
         else:
-            x_lab, y = batch
-            x_unl = []
+            x_lbl, y_lbl = batch
+            x_unl = None
 
-        x_lab_trans = x_trans_fn(x_lab)
-        y_trans = y_trans_fn(y)
-        x_unl_trans = [x_trans_fn(x) for x in x_unl]
-
-        # Remove nan values from the batch
-        #   Ordinal Encoders can return a np.nan if the value is not in the
-        #   categories. We will remove that from the batch.
-        nan = ~torch.isnan(y_trans)
-        x_lab_trans = x_lab_trans[nan]
-        x_unl_trans = [x[nan] for x in x_unl_trans]
-        x_lab_trans = torch.nan_to_num(x_lab_trans)
-        x_unl_trans = [torch.nan_to_num(x) for x in x_unl_trans]
-        y_trans = y_trans[nan]
-
-        if self.training:
-            return (x_lab_trans, y_trans.long()), x_unl_trans
-        else:
-            return x_lab_trans, y_trans.long()
+        return preprocess(
+            x_lbl=x_lbl,
+            y_lbl=y_lbl,
+            x_scaler=self.x_scaler,
+            y_encoder=self.y_encoder,
+            x_unl=x_unl,
+        )
