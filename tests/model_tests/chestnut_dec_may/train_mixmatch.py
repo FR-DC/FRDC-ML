@@ -102,7 +102,7 @@ def main(
     with open(Path(__file__).parent / "report.md", "a+") as f:
         f.write(
             f"# Chestnut Nature Park (Dec 2020 vs May 2021) MixMatch\n"
-            f"- Results: [WandB Report]({wandb.run.get_url()})"
+            f"- Results: [WandB Report]({wandb.run.get_url()})\n"
         )
 
     y_true, y_pred = predict(
