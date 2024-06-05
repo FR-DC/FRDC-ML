@@ -10,7 +10,7 @@ from torchvision.models import (
     EfficientNet_B1_Weights,
 )
 
-from frdc.models.utils import on_save_checkpoint, on_load_checkpoint
+from frdc.models.utils import save_unfrozen, load_checkpoint_lenient
 from frdc.train.fixmatch_module import FixMatchModule
 from frdc.train.mixmatch_module import MixMatchModule
 from frdc.utils.ema import EMA
@@ -139,28 +139,12 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
         self.ema_updater.update(self.ema_lr)
 
     def forward(self, x: torch.Tensor):
-        """Forward pass."""
         return self.fc(self.eff(x))
 
     def configure_optimizers(self):
         return torch.optim.Adam(
             self.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-
-    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        # TODO: MixMatch's saving is a bit complicated due to the dependency
-        #       on the EMA model. This only saves the FC for both the
-        #       main model and the EMA model.
-        #       This may be the reason certain things break when loading
-        if checkpoint["hyper_parameters"]["frozen"]:
-            on_save_checkpoint(
-                self,
-                checkpoint,
-                saved_module_prefixes=("_ema_model.fc.", "fc."),
-            )
-
-    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        on_load_checkpoint(self, checkpoint)
 
 
 class EfficientNetB1FixMatchModule(FixMatchModule):
@@ -209,21 +193,9 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
         )
 
     def forward(self, x: torch.Tensor):
-        """Forward pass."""
         return self.fc(self.eff(x))
 
     def configure_optimizers(self):
         return torch.optim.Adam(
             self.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-
-    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        if checkpoint["hyper_parameters"]["frozen"]:
-            on_save_checkpoint(
-                self,
-                checkpoint,
-                saved_module_prefixes=("fc.",),
-            )
-
-    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        on_load_checkpoint(self, checkpoint)

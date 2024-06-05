@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Dict
 
 import torch
 import torch.nn.functional as F
@@ -10,6 +10,7 @@ from lightning import LightningModule
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from torchmetrics.functional import accuracy
 
+from frdc.models.utils import save_unfrozen, load_checkpoint_lenient
 from frdc.train.utils import (
     wandb_hist,
     preprocess,
@@ -92,6 +93,7 @@ class FixMatchModule(LightningModule):
             ℓ
             Loss: ℓ_lbl + ℓ_unl
         """
+
     def training_step(self, batch, batch_idx):
         (x_lbl, y_lbl), x_unls = batch
         opt = self.optimizers()
@@ -246,3 +248,9 @@ class FixMatchModule(LightningModule):
             y_encoder=self.y_encoder,
             x_unl=x_unl,
         )
+
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        save_unfrozen(self, checkpoint)
+
+    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        load_checkpoint_lenient(self, checkpoint)
