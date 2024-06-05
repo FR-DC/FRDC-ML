@@ -266,7 +266,7 @@ class MixMatchModule(LightningModule):
         save_unfrozen(
             self,
             checkpoint,
-            include_also=lambda k: k.startswith("_ema_model."),
+            include_also=lambda k: k.startswith("_ema_model.fc."),
         )
 
     def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
