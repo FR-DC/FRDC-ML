@@ -58,6 +58,7 @@ def preprocess(
     x_scaler: StandardScaler,
     y_encoder: OrdinalEncoder,
     x_unl: list[torch.Tensor] = None,
+    nan_mask: bool = True,
 ) -> tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]]:
     """Preprocesses the data
 
@@ -73,6 +74,8 @@ def preprocess(
         y_lbl: The labels to preprocess.
         x_scaler: The StandardScaler to use.
         y_encoder: The OrdinalEncoder to use.
+        x_unl: The unlabelled data to preprocess.
+        nan_mask: Whether to remove nan values from the batch.
 
     Returns:
         The preprocessed data and labels.
@@ -92,7 +95,9 @@ def preprocess(
     # Remove nan values from the batch
     #   Ordinal Encoders can return a np.nan if the value is not in the
     #   categories. We will remove that from the batch.
-    nan = ~torch.isnan(y_trans)
+    nan = (
+        ~torch.isnan(y_trans) if nan_mask else torch.ones_like(y_trans).bool()
+    )
     x_lbl_trans = x_lbl_trans[nan]
     x_lbl_trans = torch.nan_to_num(x_lbl_trans)
     x_unl_trans = fn_recursive(
