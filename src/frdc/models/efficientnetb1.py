@@ -16,6 +16,14 @@ from frdc.train.mixmatch_module import MixMatchModule
 from frdc.utils.ema import EMA
 
 
+class PartialConv2d(nn.Conv2d):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward(self, x):
+        return super().forward(x)
+
+
 def efficientnet_b1_backbone(in_channels: int, frozen: bool):
     """Get the N Channel adapted EfficientNet B1 model without classifier.
 
@@ -29,7 +37,7 @@ def efficientnet_b1_backbone(in_channels: int, frozen: bool):
     eff = efficientnet_b1(weights=EfficientNet_B1_Weights.IMAGENET1K_V2)
 
     # Adapt the first layer to accept the number of channels
-    eff = adapt_n_in_channel(eff, in_channels)
+    eff = fork_n_in_channel(eff, in_channels)
 
     # Remove the final layer
     eff.classifier = nn.Identity()
@@ -37,6 +45,8 @@ def efficientnet_b1_backbone(in_channels: int, frozen: bool):
     if frozen:
         for param in eff.parameters():
             param.requires_grad = False
+        for param in eff.features[0][0].conv_other.parameters():
+            param.requires_grad = True
 
     return eff
 
@@ -68,6 +78,67 @@ def adapt_n_in_channel(eff: EfficientNet, in_channels: int) -> EfficientNet:
     new_conv.weight.data[:, 3:] = old_conv.weight.data[:, 1:2].repeat(
         1, in_channels - 3, 1, 1
     )
+    eff.features[0][0] = new_conv
+
+    return eff
+
+
+def fork_n_in_channel(eff: EfficientNet, in_channels: int) -> EfficientNet:
+    """Adapt the EfficientNet model to accept a different number of
+    input channels.
+
+    Notes:
+        This operation is in-place, however will still return the model
+
+    Args:
+        eff: The EfficientNet model
+        in_channels: The number of input channels
+
+    Returns:
+        The adapted EfficientNet model.
+    """
+
+    class ForkConv2d(nn.Module):
+        def __init__(
+            self, in_channels, out_channels, kernel_size, stride, padding, bias
+        ):
+            super().__init__()
+            self.conv_rgb = nn.Conv2d(
+                in_channels=3,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+                bias=bias,
+            )
+            self.conv_other = nn.Conv2d(
+                in_channels=in_channels - 3,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+                bias=bias,
+            )
+            self.rgb_weight = 3 / 8
+            self.other_weight = 5 / 8
+
+        def forward(self, x):
+            x_rgb = self.conv_rgb(x[:, :3])
+            x_other = self.conv_other(x[:, 3:])
+
+            return self.rgb_weight * x_rgb + self.other_weight * x_other
+
+    old_conv = eff.features[0][0]
+    new_conv = ForkConv2d(
+        in_channels,
+        old_conv.out_channels,
+        old_conv.kernel_size,
+        old_conv.stride,
+        old_conv.padding,
+        old_conv.bias,
+    )
+
+    new_conv.conv_rgb.weight.data[:, :3] = old_conv.weight.data
     eff.features[0][0] = new_conv
 
     return eff
