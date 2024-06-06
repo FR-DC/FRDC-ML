@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Dict
 
 import torch
 import torch.nn.functional as F
@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from torch.nn.functional import one_hot
 from torchmetrics.functional import accuracy
 
+from frdc.models.utils import save_unfrozen, load_checkpoint_lenient
 from frdc.train.utils import (
     mix_up,
     sharpen,
@@ -260,3 +261,13 @@ class MixMatchModule(LightningModule):
             y_encoder=self.y_encoder,
             x_unl=x_unl,
         )
+
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        save_unfrozen(
+            self,
+            checkpoint,
+            include_also=lambda k: k.startswith("_ema_model.fc."),
+        )
+
+    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        load_checkpoint_lenient(self, checkpoint)
