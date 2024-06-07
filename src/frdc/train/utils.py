@@ -55,7 +55,6 @@ def sharpen(y: torch.Tensor, temp: float) -> torch.Tensor:
 def preprocess(
     x_lbl: torch.Tensor,
     y_lbl: torch.Tensor,
-    x_scaler: StandardScaler,
     y_encoder: OrdinalEncoder,
     x_unl: list[torch.Tensor] = None,
     nan_mask: bool = True,
@@ -72,7 +71,6 @@ def preprocess(
     Args:
         x_lbl: The data to preprocess.
         y_lbl: The labels to preprocess.
-        x_scaler: The StandardScaler to use.
         y_encoder: The OrdinalEncoder to use.
         x_unl: The unlabelled data to preprocess.
         nan_mask: Whether to remove nan values from the batch.
@@ -83,13 +81,8 @@ def preprocess(
 
     x_unl = [] if x_unl is None else x_unl
 
-    x_lbl_trans = x_standard_scale(x_scaler, x_lbl)
-    y_trans = y_encode(y_encoder, y_lbl)
-    x_unl_trans = fn_recursive(
-        x_unl,
-        fn=lambda x: x_standard_scale(x_scaler, x),
-        type_atom=torch.Tensor,
-        type_list=list,
+    y_trans = torch.from_numpy(
+        y_encoder.transform(np.array(y_lbl).reshape(-1, 1))[..., 0]
     )
 
     # Remove nan values from the batch
@@ -98,10 +91,10 @@ def preprocess(
     nan = (
         ~torch.isnan(y_trans) if nan_mask else torch.ones_like(y_trans).bool()
     )
-    x_lbl_trans = x_lbl_trans[nan]
+    x_lbl_trans = x_lbl[nan]
     x_lbl_trans = torch.nan_to_num(x_lbl_trans)
     x_unl_trans = fn_recursive(
-        x_unl_trans,
+        x_unl,
         fn=lambda x: torch.nan_to_num(x[nan]),
         type_atom=torch.Tensor,
         type_list=list,
@@ -109,50 +102,6 @@ def preprocess(
     y_trans = y_trans[nan]
 
     return (x_lbl_trans, y_trans.long()), x_unl_trans
-
-
-def x_standard_scale(
-    x_scaler: StandardScaler, x: torch.Tensor
-) -> torch.Tensor:
-    """Standard scales the data
-
-    Notes:
-        This is a wrapper around the StandardScaler to handle PyTorch tensors.
-
-    Args:
-        x_scaler: The StandardScaler to use.
-        x: The data to standard scale, of shape (B, C, H, W).
-    """
-    # Standard Scaler only accepts (n_samples, n_features),
-    # so we need to do some fancy reshaping.
-    # Note that moving dimensions then reshaping is different from just
-    # reshaping!
-
-    # Move Channel to the last dimension then transform
-    # B x C x H x W -> B x H x W x C
-    b, c, h, w = x.shape
-    x_ss = x_scaler.transform(x.permute(0, 2, 3, 1).reshape(-1, c))
-
-    # Move Channel back to the second dimension
-    # B x H x W x C -> B x C x H x W
-    return torch.nan_to_num(
-        torch.from_numpy(x_ss.reshape(b, h, w, c)).permute(0, 3, 1, 2).float()
-    )
-
-
-def y_encode(y_encoder: OrdinalEncoder, y: torch.Tensor) -> torch.Tensor:
-    """Encodes the labels
-
-    Notes:
-        This is a wrapper around the OrdinalEncoder to handle PyTorch tensors.
-
-    Args:
-        y_encoder: The OrdinalEncoder to use.
-        y: The labels to encode.
-    """
-    return torch.from_numpy(
-        y_encoder.transform(np.array(y).reshape(-1, 1))[..., 0]
-    )
 
 
 def wandb_hist(x: torch.Tensor, num_bins: int) -> wandb.Histogram:

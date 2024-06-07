@@ -27,7 +27,6 @@ from model_tests.utils import (
     FRDCDatasetStaticEval,
     n_weak_strong_aug,
     get_y_encoder,
-    get_x_scaler,
     weak_aug,
 )
 
@@ -96,13 +95,11 @@ def main(
     )
 
     oe = get_y_encoder(train_lab_ds.targets)
-    ss = get_x_scaler(train_lab_ds.ar_segments)
 
     m = EfficientNetB1FixMatchModule(
         in_channels=train_lab_ds.ar.shape[-1],
         n_classes=len(oe.categories_[0]),
         lr=lr,
-        x_scaler=ss,
         y_encoder=oe,
         frozen=True,
     )

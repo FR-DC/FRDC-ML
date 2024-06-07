@@ -21,7 +21,6 @@ class FixMatchModule(LightningModule):
     def __init__(
         self,
         *,
-        x_scaler: StandardScaler,
         y_encoder: OrdinalEncoder,
         n_classes: int = 10,
         unl_conf_threshold: float = 0.95,
@@ -41,7 +40,6 @@ class FixMatchModule(LightningModule):
 
         Args:
             n_classes: The number of classes in the dataset.
-            x_scaler: The StandardScaler to use for the data.
             y_encoder: The OrdinalEncoder to use for the labels.
             unl_conf_threshold: The confidence threshold for unlabelled data
                 to be considered correctly labelled.
@@ -49,7 +47,6 @@ class FixMatchModule(LightningModule):
 
         super().__init__()
 
-        self.x_scaler = x_scaler
         self.y_encoder = y_encoder
         self.n_classes = n_classes
         self.unl_conf_threshold = unl_conf_threshold
@@ -244,7 +241,6 @@ class FixMatchModule(LightningModule):
         return preprocess(
             x_lbl=x_lbl,
             y_lbl=y_lbl,
-            x_scaler=self.x_scaler,
             y_encoder=self.y_encoder,
             x_unl=x_unl,
         )

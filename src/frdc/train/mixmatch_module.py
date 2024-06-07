@@ -24,7 +24,6 @@ class MixMatchModule(LightningModule):
     def __init__(
         self,
         *,
-        x_scaler: StandardScaler,
         y_encoder: OrdinalEncoder,
         n_classes: int = 10,
         sharpen_temp: float = 0.5,
@@ -52,7 +51,6 @@ class MixMatchModule(LightningModule):
 
         super().__init__()
 
-        self.x_scaler = x_scaler
         self.y_encoder = y_encoder
         self.n_classes = n_classes
         self.sharpen_temp = sharpen_temp
@@ -257,7 +255,6 @@ class MixMatchModule(LightningModule):
         return preprocess(
             x_lbl=x_lbl,
             y_lbl=y_lbl,
-            x_scaler=self.x_scaler,
             y_encoder=self.y_encoder,
             x_unl=x_unl,
         )

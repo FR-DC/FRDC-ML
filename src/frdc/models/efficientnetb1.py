@@ -83,7 +83,6 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
         in_channels: int,
         n_classes: int,
         lr: float,
-        x_scaler: StandardScaler,
         y_encoder: OrdinalEncoder,
         ema_lr: float = 0.001,
         weight_decay: float = 1e-5,
@@ -95,7 +94,6 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
             in_channels: The number of input channels.
             n_classes: The number of classes.
             lr: The learning rate.
-            x_scaler: The X input StandardScaler.
             y_encoder: The Y input OrdinalEncoder.
             ema_lr: The learning rate for the EMA model.
             weight_decay: The weight decay.
@@ -109,7 +107,6 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
 
         super().__init__(
             n_classes=n_classes,
-            x_scaler=x_scaler,
             y_encoder=y_encoder,
             sharpen_temp=0.5,
             mix_beta_alpha=0.75,
@@ -157,7 +154,6 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
         in_channels: int,
         n_classes: int,
         lr: float,
-        x_scaler: StandardScaler,
         y_encoder: OrdinalEncoder,
         weight_decay: float = 1e-5,
         frozen: bool = True,
@@ -168,7 +164,6 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
             in_channels: The number of input channels.
             n_classes: The number of classes.
             lr: The learning rate.
-            x_scaler: The X input StandardScaler.
             y_encoder: The Y input OrdinalEncoder.
             weight_decay: The weight decay.
             frozen: Whether to freeze the base model.
@@ -181,7 +176,6 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
 
         super().__init__(
             n_classes=n_classes,
-            x_scaler=x_scaler,
             y_encoder=y_encoder,
         )
 
