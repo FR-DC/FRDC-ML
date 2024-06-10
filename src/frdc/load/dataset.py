@@ -73,7 +73,7 @@ class FRDCDataset(Dataset):
         date: str,
         version: str | None,
         transform: Callable[[np.ndarray], Any] = lambda x: x,
-        transform_scale: bool = False,
+        transform_scale: bool | StandardScaler = True,
         target_transform: Callable[[str], str] = lambda x: x,
         use_legacy_bounds: bool = False,
         polycrop: bool = False,
@@ -97,7 +97,9 @@ class FRDCDataset(Dataset):
             date: The date of the dataset, e.g. "20201218".
             version: The version of the dataset, e.g. "183deg".
             transform: The transform to apply to each segment.
-            transform_scale: Prepends a scaling transform to the transform.
+            transform_scale: Whether to scale the data. If True, it will fit
+                a StandardScaler to the data. If a StandardScaler is passed,
+                it will use that instead. If False, it will not scale the data.
             target_transform: The transform to apply to each label.
             use_legacy_bounds: Whether to use the legacy bounds.csv file.
                 This will automatically be set to True if LABEL_STUDIO_CLIENT
@@ -129,7 +131,7 @@ class FRDCDataset(Dataset):
         self.transform = transform
         self.target_transform = target_transform
 
-        if transform_scale:
+        if transform_scale is True:
             self.x_scaler = StandardScaler()
             self.x_scaler.fit(
                 np.concatenate(
@@ -141,6 +143,13 @@ class FRDCDataset(Dataset):
                     ]
                 )
             )
+            self.transform = lambda x: transform(
+                self.x_scaler.transform(x.reshape(-1, x.shape[-1])).reshape(
+                    x.shape
+                )
+            )
+        elif isinstance(transform_scale, StandardScaler):
+            self.x_scaler = transform_scale
             self.transform = lambda x: transform(
                 self.x_scaler.transform(x.reshape(-1, x.shape[-1])).reshape(
                     x.shape

@@ -26,7 +26,6 @@ from model_tests.utils import (
     val_preprocess,
     FRDCDatasetStaticEval,
     n_weak_strong_aug,
-    get_y_encoder,
     weak_aug,
 )
 
@@ -57,9 +56,12 @@ def main(
     im_size = 255
     train_lab_ds = ds.chestnut_20201218(transform=weak_aug(im_size))
     train_unl_ds = ds.chestnut_20201218.unlabelled(
-        transform=n_weak_strong_aug(im_size, unlabelled_factor)
+        transform=n_weak_strong_aug(im_size, unlabelled_factor),
     )
-    val_ds = ds.chestnut_20210510_43m(transform=val_preprocess(im_size))
+    val_ds = ds.chestnut_20210510_43m(
+        transform=val_preprocess(im_size),
+        transform_scale=train_lab_ds.x_scaler,
+    )
 
     # Prepare the datamodule and trainer
     dm = FRDCDataModule(
@@ -115,6 +117,7 @@ def main(
             "20210510",
             "90deg43m85pct255deg",
             transform=val_preprocess(im_size),
+            transform_scale=train_lab_ds.x_scaler,
         ),
         model=m,
     )

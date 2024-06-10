@@ -44,11 +44,16 @@ def main(
 ):
     # Prepare the dataset
     im_size = 299
-    train_lab_ds = ds.chestnut_20201218(transform=strong_aug(im_size))
+    train_lab_ds = ds.chestnut_20201218(
+        transform=strong_aug(im_size),
+    )
     train_unl_ds = ds.chestnut_20201218.unlabelled(
         transform=n_strong_aug(im_size, 2)
     )
-    val_ds = ds.chestnut_20210510_43m(transform=val_preprocess(im_size))
+    val_ds = ds.chestnut_20210510_43m(
+        transform=val_preprocess(im_size),
+        transform_scale=train_lab_ds.x_scaler,
+    )
 
     # Prepare the datamodule and trainer
     dm = FRDCDataModule(
@@ -104,6 +109,7 @@ def main(
             "20210510",
             "90deg43m85pct255deg",
             transform=val_preprocess(im_size),
+            transform_scale=train_lab_ds.x_scaler,
         ),
         model=m,
     )
