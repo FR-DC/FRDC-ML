@@ -1,32 +1,28 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Sequence
 
 import torch
 import torch.nn.functional as F
 import wandb
-from lightning import LightningModule
-from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from torch.nn.functional import one_hot
 from torchmetrics.functional import accuracy
 
-from frdc.models.utils import save_unfrozen, load_checkpoint_lenient
+from frdc.models.utils import save_unfrozen
+from frdc.train.frdc_module import FRDCModule
 from frdc.train.utils import (
     mix_up,
     sharpen,
     wandb_hist,
-    preprocess,
 )
 
 
-class MixMatchModule(LightningModule):
+class MixMatchModule(FRDCModule):
     def __init__(
         self,
         *,
-        x_scaler: StandardScaler,
-        y_encoder: OrdinalEncoder,
-        n_classes: int = 10,
+        out_targets: Sequence[str],
         sharpen_temp: float = 0.5,
         mix_beta_alpha: float = 0.75,
     ):
@@ -44,17 +40,14 @@ class MixMatchModule(LightningModule):
             how to implement a new dataset.
 
         Args:
-            n_classes: The number of classes in the dataset.
+            out_targets: The output targets for the model.
             sharpen_temp: The temperature to use for sharpening.
             mix_beta_alpha: The alpha to use for the beta distribution
                 when mixing.
         """
 
-        super().__init__()
+        super().__init__(out_targets=out_targets)
 
-        self.x_scaler = x_scaler
-        self.y_encoder = y_encoder
-        self.n_classes = n_classes
         self.sharpen_temp = sharpen_temp
         self.mix_beta_alpha = mix_beta_alpha
         self.save_hyperparameters()
@@ -114,7 +107,11 @@ class MixMatchModule(LightningModule):
             self.global_step / self.trainer.num_training_batches
         ) / self.trainer.max_epochs
 
-    def training_step(self, batch, batch_idx):
+    def training_step(
+        self,
+        batch: tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]],
+        batch_idx: int,
+    ):
         (x_lbl, y_lbl), x_unls = batch
 
         self.log("train/x_lbl_mean", x_lbl.mean())
@@ -191,7 +188,11 @@ class MixMatchModule(LightningModule):
     def on_after_backward(self) -> None:
         self.update_ema()
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(
+        self,
+        batch: tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]],
+        batch_idx: int,
+    ):
         (x, y), _x_unls = batch
         wandb.log({"val/y_lbl": wandb_hist(y, self.n_classes)})
         y_pred = self.ema_model(x)
@@ -211,7 +212,11 @@ class MixMatchModule(LightningModule):
         self.log("val/acc", acc, prog_bar=True)
         return loss
 
-    def test_step(self, batch, batch_idx):
+    def test_step(
+        self,
+        batch: tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]],
+        batch_idx: int,
+    ):
         (x, y), _x_unls = batch
         y_pred = self.ema_model(x)
         loss = F.cross_entropy(y_pred, y.long())
@@ -223,7 +228,10 @@ class MixMatchModule(LightningModule):
         self.log("test/acc", acc, prog_bar=True)
         return loss
 
-    def predict_step(self, batch, *args, **kwargs) -> Any:
+    def predict_step(
+        self,
+        batch: tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]],
+    ) -> Any:
         (x, y), _x_unls = batch
         y_pred = self.ema_model(x)
         y_true_str = self.y_encoder.inverse_transform(
@@ -234,40 +242,10 @@ class MixMatchModule(LightningModule):
         )
         return y_true_str, y_pred_str
 
-    @torch.no_grad()
-    def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
-        """This method is called before any data transfer to the device.
-
-        We leverage this to do some preprocessing on the data.
-        Namely, we use the StandardScaler and OrdinalEncoder to transform the
-        data.
-
-        Notes:
-            PyTorch Lightning may complain about this being on the Module
-            instead of the DataModule. However, this is intentional as we
-            want to export the model alongside the transformations.
-        """
-
-        if self.training:
-            (x_lbl, y_lbl), x_unl = batch
-        else:
-            x_lbl, y_lbl = batch
-            x_unl = None
-
-        return preprocess(
-            x_lbl=x_lbl,
-            y_lbl=y_lbl,
-            x_scaler=self.x_scaler,
-            y_encoder=self.y_encoder,
-            x_unl=x_unl,
-        )
-
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        """This override the original method to save the EMAs as well."""
         save_unfrozen(
             self,
             checkpoint,
             include_also=lambda k: k.startswith("_ema_model.fc."),
         )
-
-    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        load_checkpoint_lenient(self, checkpoint)

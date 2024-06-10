@@ -132,11 +132,3 @@ def get_y_encoder(targets):
     )
     oe.fit(np.array(targets).reshape(-1, 1))
     return oe
-
-
-def get_x_scaler(segments):
-    ss = StandardScaler()
-    ss.fit(
-        np.concatenate([segm.reshape(-1, segm.shape[-1]) for segm in segments])
-    )
-    return ss

@@ -1,29 +1,23 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, Dict
+from typing import Sequence
 
 import torch
 import torch.nn.functional as F
 import wandb
-from lightning import LightningModule
-from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torchmetrics.functional import accuracy
 
-from frdc.models.utils import save_unfrozen, load_checkpoint_lenient
-from frdc.train.utils import (
-    wandb_hist,
-    preprocess,
-)
+from frdc.train.frdc_module import FRDCModule
+from frdc.train.utils import wandb_hist
 
 
-class FixMatchModule(LightningModule):
+class FixMatchModule(FRDCModule):
     def __init__(
         self,
         *,
-        x_scaler: StandardScaler,
-        y_encoder: OrdinalEncoder,
-        n_classes: int = 10,
+        out_targets: Sequence[str],
         unl_conf_threshold: float = 0.95,
     ):
         """PyTorch Lightning Module for MixMatch
@@ -40,18 +34,13 @@ class FixMatchModule(LightningModule):
             how to implement a new dataset.
 
         Args:
-            n_classes: The number of classes in the dataset.
-            x_scaler: The StandardScaler to use for the data.
-            y_encoder: The OrdinalEncoder to use for the labels.
+            out_targets: The output targets for the model.
             unl_conf_threshold: The confidence threshold for unlabelled data
                 to be considered correctly labelled.
         """
 
-        super().__init__()
+        super().__init__(out_targets=out_targets)
 
-        self.x_scaler = x_scaler
-        self.y_encoder = y_encoder
-        self.n_classes = n_classes
         self.unl_conf_threshold = unl_conf_threshold
         self.save_hyperparameters()
 
@@ -63,7 +52,11 @@ class FixMatchModule(LightningModule):
     def forward(self, x):
         ...
 
-    def training_step(self, batch, batch_idx):
+    def training_step(
+        self,
+        batch: tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]],
+        batch_idx: int,
+    ):
         """A single training step for a batch
 
         Notes:
@@ -94,7 +87,6 @@ class FixMatchModule(LightningModule):
             Loss: ℓ_lbl + ℓ_unl
         """
 
-    def training_step(self, batch, batch_idx):
         (x_lbl, y_lbl), x_unls = batch
         opt = self.optimizers()
 
@@ -175,7 +167,11 @@ class FixMatchModule(LightningModule):
             }
         )
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(
+        self,
+        batch: tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]],
+        batch_idx: int,
+    ):
         # The batch outputs x_unls due to our on_before_batch_transfer
         (x, y), _x_unls = batch
         wandb.log({"val/y_lbl": wandb_hist(y, self.n_classes)})
@@ -197,7 +193,11 @@ class FixMatchModule(LightningModule):
         self.log("val/acc", acc, prog_bar=True)
         return loss
 
-    def test_step(self, batch, batch_idx):
+    def test_step(
+        self,
+        batch: tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]],
+        batch_idx: int,
+    ) -> STEP_OUTPUT:
         # The batch outputs x_unls due to our on_before_batch_transfer
         (x, y), _x_unls = batch
         y_pred = self(x)
@@ -210,7 +210,10 @@ class FixMatchModule(LightningModule):
         self.log("test/acc", acc, prog_bar=True)
         return loss
 
-    def predict_step(self, batch, *args, **kwargs) -> Any:
+    def predict_step(
+        self,
+        batch: tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]],
+    ):
         (x, y), _x_unls = batch
         y_pred = self(x)
         y_true_str = self.y_encoder.inverse_transform(
@@ -220,37 +223,3 @@ class FixMatchModule(LightningModule):
             y_pred.argmax(dim=1).cpu().numpy().reshape(-1, 1)
         )
         return y_true_str, y_pred_str
-
-    @torch.no_grad()
-    def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
-        """This method is called before any data transfer to the device.
-
-        We leverage this to do some preprocessing on the data.
-        Namely, we use the StandardScaler and OrdinalEncoder to transform the
-        data.
-
-        Notes:
-            PyTorch Lightning may complain about this being on the Module
-            instead of the DataModule. However, this is intentional as we
-            want to export the model alongside the transformations.
-        """
-
-        if self.training:
-            (x_lbl, y_lbl), x_unl = batch
-        else:
-            x_lbl, y_lbl = batch
-            x_unl = None
-
-        return preprocess(
-            x_lbl=x_lbl,
-            y_lbl=y_lbl,
-            x_scaler=self.x_scaler,
-            y_encoder=self.y_encoder,
-            x_unl=x_unl,
-        )
-
-    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        save_unfrozen(self, checkpoint)
-
-    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        load_checkpoint_lenient(self, checkpoint)

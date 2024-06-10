@@ -26,8 +26,6 @@ from model_tests.utils import (
     val_preprocess,
     FRDCDatasetStaticEval,
     n_weak_strong_aug,
-    get_y_encoder,
-    get_x_scaler,
     weak_aug,
 )
 
@@ -58,9 +56,12 @@ def main(
     im_size = 255
     train_lab_ds = ds.chestnut_20201218(transform=weak_aug(im_size))
     train_unl_ds = ds.chestnut_20201218.unlabelled(
-        transform=n_weak_strong_aug(im_size, unlabelled_factor)
+        transform=n_weak_strong_aug(im_size, unlabelled_factor),
     )
-    val_ds = ds.chestnut_20210510_43m(transform=val_preprocess(im_size))
+    val_ds = ds.chestnut_20210510_43m(
+        transform=val_preprocess(im_size),
+        transform_scale=train_lab_ds.x_scaler,
+    )
 
     # Prepare the datamodule and trainer
     dm = FRDCDataModule(
@@ -95,15 +96,10 @@ def main(
         ),
     )
 
-    oe = get_y_encoder(train_lab_ds.targets)
-    ss = get_x_scaler(train_lab_ds.ar_segments)
-
     m = EfficientNetB1FixMatchModule(
         in_channels=train_lab_ds.ar.shape[-1],
-        n_classes=len(oe.categories_[0]),
+        out_targets=train_lab_ds.targets,
         lr=lr,
-        x_scaler=ss,
-        y_encoder=oe,
         frozen=True,
     )
 
@@ -121,10 +117,11 @@ def main(
             "20210510",
             "90deg43m85pct255deg",
             transform=val_preprocess(im_size),
+            transform_scale=train_lab_ds.x_scaler,
         ),
         model=m,
     )
-    fig, ax = plot_confusion_matrix(y_true, y_pred, oe.categories_[0])
+    fig, ax = plot_confusion_matrix(y_true, y_pred, m.y_encoder.categories_[0])
     acc = np.sum(y_true == y_pred) / len(y_true)
     ax.set_title(f"Accuracy: {acc:.2%}")
 

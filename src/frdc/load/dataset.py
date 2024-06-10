@@ -9,6 +9,7 @@ from typing import Iterable, Callable, Any
 import numpy as np
 import pandas as pd
 from PIL import Image
+from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset, ConcatDataset
 
 from frdc.conf import (
@@ -71,8 +72,9 @@ class FRDCDataset(Dataset):
         site: str,
         date: str,
         version: str | None,
-        transform: Callable[[list[np.ndarray]], Any] = None,
-        target_transform: Callable[[list[str]], list[str]] = None,
+        transform: Callable[[np.ndarray], Any] = lambda x: x,
+        transform_scale: bool | StandardScaler = True,
+        target_transform: Callable[[str], str] = lambda x: x,
         use_legacy_bounds: bool = False,
         polycrop: bool = False,
         polycrop_value: Any = np.nan,
@@ -95,6 +97,9 @@ class FRDCDataset(Dataset):
             date: The date of the dataset, e.g. "20201218".
             version: The version of the dataset, e.g. "183deg".
             transform: The transform to apply to each segment.
+            transform_scale: Whether to scale the data. If True, it will fit
+                a StandardScaler to the data. If a StandardScaler is passed,
+                it will use that instead. If False, it will not scale the data.
             target_transform: The transform to apply to each label.
             use_legacy_bounds: Whether to use the legacy bounds.csv file.
                 This will automatically be set to True if LABEL_STUDIO_CLIENT
@@ -102,6 +107,7 @@ class FRDCDataset(Dataset):
                 to.
             polycrop: Whether to further crop the segments via its polygon
                 bounds. The cropped area will be padded with np.nan.
+            polycrop_value: The value to pad the cropped area with.
         """
         self.site = site
         self.date = date
@@ -125,17 +131,40 @@ class FRDCDataset(Dataset):
         self.transform = transform
         self.target_transform = target_transform
 
+        if transform_scale is True:
+            self.x_scaler = StandardScaler()
+            self.x_scaler.fit(
+                np.concatenate(
+                    [
+                        # Segments: [H x W x C] -> [H*W, C]
+                        # Reshaping is necessary for StandardScaler
+                        segm.reshape(-1, segm.shape[-1])
+                        for segm in self.ar_segments
+                    ]
+                )
+            )
+            self.transform = lambda x: transform(
+                self.x_scaler.transform(x.reshape(-1, x.shape[-1])).reshape(
+                    x.shape
+                )
+            )
+        elif isinstance(transform_scale, StandardScaler):
+            self.x_scaler = transform_scale
+            self.transform = lambda x: transform(
+                self.x_scaler.transform(x.reshape(-1, x.shape[-1])).reshape(
+                    x.shape
+                )
+            )
+        else:
+            self.x_scaler = None
+
     def __len__(self):
         return len(self.ar_segments)
 
     def __getitem__(self, idx):
         return (
-            self.transform(self.ar_segments[idx])
-            if self.transform
-            else self.ar_segments[idx],
-            self.target_transform(self.targets[idx])
-            if self.target_transform
-            else self.targets[idx],
+            self.transform(self.ar_segments[idx]),
+            self.target_transform(self.targets[idx]),
         )
 
     @property
