@@ -94,13 +94,10 @@ def main(
         ),
     )
 
-    oe = get_y_encoder(train_lab_ds.targets)
-
     m = EfficientNetB1FixMatchModule(
         in_channels=train_lab_ds.ar.shape[-1],
-        n_classes=len(oe.categories_[0]),
+        out_targets=train_lab_ds.targets,
         lr=lr,
-        y_encoder=oe,
         frozen=True,
     )
 
@@ -121,7 +118,7 @@ def main(
         ),
         model=m,
     )
-    fig, ax = plot_confusion_matrix(y_true, y_pred, oe.categories_[0])
+    fig, ax = plot_confusion_matrix(y_true, y_pred, m.y_encoder.categories_[0])
     acc = np.sum(y_true == y_pred) / len(y_true)
     ax.set_title(f"Accuracy: {acc:.2%}")
 

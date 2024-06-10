@@ -25,8 +25,6 @@ from model_tests.utils import (
     FRDCDatasetStaticEval,
     n_strong_aug,
     strong_aug,
-    get_y_encoder,
-    get_x_scaler,
 )
 
 
@@ -85,15 +83,10 @@ def main(
         ),
     )
 
-    oe = get_y_encoder(train_lab_ds.targets)
-    ss = get_x_scaler(train_lab_ds.ar_segments)
-
     m = EfficientNetB1MixMatchModule(
         in_channels=train_lab_ds.ar.shape[-1],
-        n_classes=len(oe.categories_[0]),
+        out_targets=train_lab_ds.targets,
         lr=lr,
-        x_scaler=ss,
-        y_encoder=oe,
         frozen=True,
     )
 
@@ -114,7 +107,7 @@ def main(
         ),
         model=m,
     )
-    fig, ax = plot_confusion_matrix(y_true, y_pred, oe.categories_[0])
+    fig, ax = plot_confusion_matrix(y_true, y_pred, m.y_encoder.categories_[0])
     acc = np.sum(y_true == y_pred) / len(y_true)
     ax.set_title(f"Accuracy: {acc:.2%}")
 

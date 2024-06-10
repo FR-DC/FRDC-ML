@@ -52,58 +52,6 @@ def sharpen(y: torch.Tensor, temp: float) -> torch.Tensor:
     return y_sharp
 
 
-def preprocess(
-    x_lbl: torch.Tensor,
-    y_lbl: torch.Tensor,
-    y_encoder: OrdinalEncoder,
-    x_unl: list[torch.Tensor] = None,
-    nan_mask: bool = True,
-) -> tuple[tuple[torch.Tensor, torch.Tensor], list[torch.Tensor]]:
-    """Preprocesses the data
-
-    Notes:
-        The reason why x and y's preprocessing is coupled is due to the NaN
-        elimination step. The NaN elimination step is due to unseen labels by y
-
-        fn_recursive is to recursively apply some function to a nested list.
-        This happens due to unlabelled being a list of tensors.
-
-    Args:
-        x_lbl: The data to preprocess.
-        y_lbl: The labels to preprocess.
-        y_encoder: The OrdinalEncoder to use.
-        x_unl: The unlabelled data to preprocess.
-        nan_mask: Whether to remove nan values from the batch.
-
-    Returns:
-        The preprocessed data and labels.
-    """
-
-    x_unl = [] if x_unl is None else x_unl
-
-    y_trans = torch.from_numpy(
-        y_encoder.transform(np.array(y_lbl).reshape(-1, 1))[..., 0]
-    )
-
-    # Remove nan values from the batch
-    #   Ordinal Encoders can return a np.nan if the value is not in the
-    #   categories. We will remove that from the batch.
-    nan = (
-        ~torch.isnan(y_trans) if nan_mask else torch.ones_like(y_trans).bool()
-    )
-    x_lbl_trans = x_lbl[nan]
-    x_lbl_trans = torch.nan_to_num(x_lbl_trans)
-    x_unl_trans = fn_recursive(
-        x_unl,
-        fn=lambda x: torch.nan_to_num(x[nan]),
-        type_atom=torch.Tensor,
-        type_list=list,
-    )
-    y_trans = y_trans[nan]
-
-    return (x_lbl_trans, y_trans.long()), x_unl_trans
-
-
 def wandb_hist(x: torch.Tensor, num_bins: int) -> wandb.Histogram:
     """Records a W&B Histogram"""
     return wandb.Histogram(

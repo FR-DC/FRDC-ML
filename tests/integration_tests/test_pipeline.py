@@ -2,10 +2,8 @@ import logging
 from pathlib import Path
 
 import lightning as pl
-import numpy as np
 import pytest
 import torch
-from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 
 from frdc.models.efficientnetb1 import (
     EfficientNetB1MixMatchModule,
@@ -33,22 +31,10 @@ def test_manual_segmentation_pipeline(model_fn, ds):
         val_ds=ds,
         batch_size=BATCH_SIZE,
     )
-
-    oe = OrdinalEncoder(
-        handle_unknown="use_encoded_value",
-        unknown_value=np.nan,
-    )
-    oe.fit(np.array(ds.targets).reshape(-1, 1))
-    n_classes = len(oe.categories_[0])
-
-    ss = StandardScaler()
-    ss.fit(ds.ar.reshape(-1, ds.ar.shape[-1]))
-
     m = model_fn(
         in_channels=ds.ar.shape[-1],
-        n_classes=n_classes,
         lr=1e-3,
-        y_encoder=oe,
+        out_targets=ds.targets,
         frozen=True,
     )
 
@@ -92,4 +78,4 @@ def test_manual_segmentation_pipeline(model_fn, ds):
     #   E.g. achieved via hash comparison.
     #   This is because BatchNorm usually keeps running statistics
     #   and reloading the model will reset them.
-    #   We don't necessarily need to
+    #   We don't necessarily need to check for this.
