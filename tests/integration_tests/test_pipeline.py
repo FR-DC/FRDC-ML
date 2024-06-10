@@ -48,7 +48,6 @@ def test_manual_segmentation_pipeline(model_fn, ds):
         in_channels=ds.ar.shape[-1],
         n_classes=n_classes,
         lr=1e-3,
-        x_scaler=ss,
         y_encoder=oe,
         frozen=True,
     )
