@@ -10,7 +10,9 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 from sklearn.preprocessing import StandardScaler
+from torch import rot90
 from torch.utils.data import Dataset, ConcatDataset
+from torchvision.transforms.v2.functional import hflip
 
 from frdc.conf import (
     BAND_CONFIG,
@@ -334,3 +336,40 @@ class FRDCUnlabelledDataset(FRDCDataset):
             if self.transform
             else self.ar_segments[item]
         )
+
+
+class FRDCConstRotatedDataset(FRDCDataset):
+    def __len__(self):
+        """Assume that the dataset is 8x larger than it actually is.
+
+        There are 8 possible orientations for each image.
+        1.       As-is
+        2, 3, 4. Rotated 90, 180, 270 degrees
+        5.       Horizontally flipped
+        6, 7, 8. Horizontally flipped and rotated 90, 180, 270 degrees
+        """
+        return super().__len__() * 8
+
+    def __getitem__(self, idx):
+        """Alter the getitem method to implement the logic above."""
+        x, y = super().__getitem__(int(idx // 8))
+        assert x.ndim == 3, "x must be a 3D tensor"
+        x_ = None
+        if idx % 8 == 0:
+            x_ = x
+        elif idx % 8 == 1:
+            x_ = rot90(x, 1, (1, 2))
+        elif idx % 8 == 2:
+            x_ = rot90(x, 2, (1, 2))
+        elif idx % 8 == 3:
+            x_ = rot90(x, 3, (1, 2))
+        elif idx % 8 == 4:
+            x_ = hflip(x)
+        elif idx % 8 == 5:
+            x_ = hflip(rot90(x, 1, (1, 2)))
+        elif idx % 8 == 6:
+            x_ = hflip(rot90(x, 2, (1, 2)))
+        elif idx % 8 == 7:
+            x_ = hflip(rot90(x, 3, (1, 2)))
+
+        return x_, y

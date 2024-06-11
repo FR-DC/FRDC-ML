@@ -24,11 +24,12 @@ from frdc.train.frdc_datamodule import FRDCDataModule
 from frdc.utils.training import predict, plot_confusion_matrix
 from model_tests.utils import (
     const_weak_aug,
-    FRDCDatasetStaticEval,
     n_rand_weak_strong_aug,
     rand_weak_aug,
 )
 
+
+# %%
 
 # Uncomment this to run the W&B monitoring locally
 # import os
@@ -37,15 +38,15 @@ from model_tests.utils import (
 
 
 def main(
-        batch_size=32,
-        epochs=10,
-        train_iters=25,
-        unlabelled_factor=2,
-        lr=1e-3,
-        accelerator="gpu",
-        wandb_active: bool = True,
-        wandb_name="chestnut_dec_may",
-        wandb_project="frdc",
+    batch_size=32,
+    epochs=10,
+    train_iters=25,
+    unlabelled_factor=2,
+    lr=1e-3,
+    accelerator="gpu",
+    wandb_active: bool = True,
+    wandb_name="chestnut_dec_may",
+    wandb_project="frdc",
 ):
     if not wandb_active:
         import os
@@ -112,10 +113,7 @@ def main(
         )
 
     y_true, y_pred = predict(
-        ds=FRDCDatasetStaticEval(
-            "chestnut_nature_park",
-            "20210510",
-            "90deg43m85pct255deg",
+        ds=ds.chestnut_20210510_43m.const_rotated(
             transform=const_weak_aug(im_size),
             transform_scale=train_lab_ds.x_scaler,
         ),

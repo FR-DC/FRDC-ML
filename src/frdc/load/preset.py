@@ -14,7 +14,11 @@ from torchvision.transforms.v2 import (
     Resize,
 )
 
-from frdc.load.dataset import FRDCDataset, FRDCUnlabelledDataset
+from frdc.load.dataset import (
+    FRDCDataset,
+    FRDCUnlabelledDataset,
+    FRDCConstRotatedDataset,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +140,44 @@ class FRDCDatasetPartial:
             polycrop_value: The value to use for polycrop.
         """
         return FRDCUnlabelledDataset(
+            self.site,
+            self.date,
+            self.version,
+            transform=transform,
+            transform_scale=transform_scale,
+            target_transform=target_transform,
+            use_legacy_bounds=use_legacy_bounds,
+            polycrop=polycrop,
+            polycrop_value=polycrop_value,
+        )
+
+    def const_rotated(
+        self,
+        transform: Callable[[np.ndarray], Any] = lambda x: x,
+        transform_scale: bool | StandardScaler = True,
+        target_transform: Callable[[str], str] = lambda x: x,
+        use_legacy_bounds: bool = False,
+        polycrop: bool = False,
+        polycrop_value: Any = np.nan,
+    ):
+        """Returns the Unlabelled Dataset.
+
+        Notes:
+            This simply masks away the labels during __getitem__.
+            The same behaviour can be achieved by setting __class__ to
+            FRDCUnlabelledDataset, but this is a more convenient way to do so.
+
+        Args:
+            transform: The transform to apply to the data.
+            transform_scale: Whether to scale the data. If True, it will fit
+                a StandardScaler to the data. If a StandardScaler is passed,
+                it will use that instead. If False, it will not scale the data.
+            target_transform: The transform to apply to the labels.
+            use_legacy_bounds: Whether to use the legacy bounds.
+            polycrop: Whether to use polycrop.
+            polycrop_value: The value to use for polycrop.
+        """
+        return FRDCConstRotatedDataset(
             self.site,
             self.date,
             self.version,
