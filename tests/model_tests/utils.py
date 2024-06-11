@@ -65,70 +65,66 @@ class FRDCDatasetStaticEval(FRDCDataset):
         return x_, y
 
 
-def val_preprocess(size: int):
-    return lambda x: Compose(
-        [
-            ToImage(),
-            ToDtype(torch.float32, scale=True),
-            Resize(size, antialias=True),
-            CenterCrop(size),
-        ]
-    )(x)
+def n_times(f, n: int):
+    return lambda x: [f(x) for _ in range(n)]
 
 
-def n_weak_aug(size, n_aug: int = 2):
-    return lambda x: (
-        [weak_aug(size)(x) for _ in range(n_aug)] if n_aug > 0 else None
-    )
+def n_rand_weak_aug(size, n_aug: int = 2):
+    return n_times(rand_weak_aug(size), n_aug)
 
 
-def n_strong_aug(size, n_aug: int = 2):
-    return lambda x: (
-        [strong_aug(size)(x) for _ in range(n_aug)] if n_aug > 0 else None
-    )
+def n_rand_strong_aug(size, n_aug: int = 2):
+    return n_times(rand_strong_aug(size), n_aug)
 
 
-def n_weak_strong_aug(size, n_aug: int = 2):
+def n_rand_weak_strong_aug(size, n_aug: int = 2):
     def f(x):
-        x_weak = n_weak_aug(size, n_aug)(x)
-        x_strong = n_strong_aug(size, n_aug)(x)
-        return list(zip(*[x_weak, x_strong])) if n_aug > 0 else None
+        # x_weak = [weak_0, weak_1, ..., weak_n]
+        x_weak = n_rand_weak_aug(size, n_aug)(x)
+        # x_strong = [strong_0, strong_1, ..., strong_n]
+        x_strong = n_rand_strong_aug(size, n_aug)(x)
+        # x_paired = [(weak_0, strong_0), (weak_1, strong_1),
+        #             ..., (weak_n, strong_n)]
+        x_paired = list(zip(*[x_weak, x_strong]))
+        return x_paired
 
     return f
 
 
-def weak_aug(size: int):
-    return lambda x: Compose(
+def rand_weak_aug(size: int):
+    return Compose(
+        [
+            ToImage(),
+            ToDtype(torch.float32, scale=True),
+            RandomHorizontalFlip(),
+            RandomVerticalFlip(),
+            RandomApply([RandomRotation((90, 90))], p=0.5),
+            Resize(size, antialias=True),
+            CenterCrop(size),
+        ]
+    )
+
+
+def const_weak_aug(size: int):
+    return Compose(
         [
             ToImage(),
             ToDtype(torch.float32, scale=True),
             Resize(size, antialias=True),
             CenterCrop(size),
-            RandomHorizontalFlip(),
-            RandomVerticalFlip(),
-            RandomApply([RandomRotation((90, 90))], p=0.5),
         ]
-    )(x)
+    )
 
 
-def strong_aug(size: int):
-    return lambda x: Compose(
+def rand_strong_aug(size: int):
+    return Compose(
         [
             ToImage(),
             ToDtype(torch.float32, scale=True),
-            Resize(size, antialias=True),
-            RandomCrop(size, pad_if_needed=False),  # Strong
             RandomHorizontalFlip(),
             RandomVerticalFlip(),
             RandomApply([RandomRotation((90, 90))], p=0.5),
+            Resize(size, antialias=True),
+            RandomCrop(size, pad_if_needed=False),  # Strong
         ]
-    )(x)
-
-
-def get_y_encoder(targets):
-    oe = OrdinalEncoder(
-        handle_unknown="use_encoded_value",
-        unknown_value=np.nan,
     )
-    oe.fit(np.array(targets).reshape(-1, 1))
-    return oe

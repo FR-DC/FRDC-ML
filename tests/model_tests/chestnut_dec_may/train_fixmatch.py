@@ -23,10 +23,10 @@ from frdc.models.efficientnetb1 import (
 from frdc.train.frdc_datamodule import FRDCDataModule
 from frdc.utils.training import predict, plot_confusion_matrix
 from model_tests.utils import (
-    val_preprocess,
+    const_weak_aug,
     FRDCDatasetStaticEval,
-    n_weak_strong_aug,
-    weak_aug,
+    n_rand_weak_strong_aug,
+    rand_weak_aug,
 )
 
 
@@ -37,15 +37,15 @@ from model_tests.utils import (
 
 
 def main(
-    batch_size=32,
-    epochs=10,
-    train_iters=25,
-    unlabelled_factor=2,
-    lr=1e-3,
-    accelerator="gpu",
-    wandb_active: bool = True,
-    wandb_name="chestnut_dec_may",
-    wandb_project="frdc",
+        batch_size=32,
+        epochs=10,
+        train_iters=25,
+        unlabelled_factor=2,
+        lr=1e-3,
+        accelerator="gpu",
+        wandb_active: bool = True,
+        wandb_name="chestnut_dec_may",
+        wandb_project="frdc",
 ):
     if not wandb_active:
         import os
@@ -54,12 +54,12 @@ def main(
 
     # Prepare the dataset
     im_size = 255
-    train_lab_ds = ds.chestnut_20201218(transform=weak_aug(im_size))
+    train_lab_ds = ds.chestnut_20201218(transform=rand_weak_aug(im_size))
     train_unl_ds = ds.chestnut_20201218.unlabelled(
-        transform=n_weak_strong_aug(im_size, unlabelled_factor),
+        transform=n_rand_weak_strong_aug(im_size, unlabelled_factor),
     )
     val_ds = ds.chestnut_20210510_43m(
-        transform=val_preprocess(im_size),
+        transform=const_weak_aug(im_size),
         transform_scale=train_lab_ds.x_scaler,
     )
 
@@ -116,7 +116,7 @@ def main(
             "chestnut_nature_park",
             "20210510",
             "90deg43m85pct255deg",
-            transform=val_preprocess(im_size),
+            transform=const_weak_aug(im_size),
             transform_scale=train_lab_ds.x_scaler,
         ),
         model=m,

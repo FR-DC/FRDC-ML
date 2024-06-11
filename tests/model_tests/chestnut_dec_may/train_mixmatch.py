@@ -21,10 +21,10 @@ from frdc.models.efficientnetb1 import EfficientNetB1MixMatchModule
 from frdc.train.frdc_datamodule import FRDCDataModule
 from frdc.utils.training import predict, plot_confusion_matrix
 from model_tests.utils import (
-    val_preprocess,
+    const_weak_aug,
     FRDCDatasetStaticEval,
-    n_strong_aug,
-    strong_aug,
+    n_rand_strong_aug,
+    rand_strong_aug,
 )
 
 
@@ -45,13 +45,13 @@ def main(
     # Prepare the dataset
     im_size = 299
     train_lab_ds = ds.chestnut_20201218(
-        transform=strong_aug(im_size),
+        transform=rand_strong_aug(im_size),
     )
     train_unl_ds = ds.chestnut_20201218.unlabelled(
-        transform=n_strong_aug(im_size, 2)
+        transform=n_rand_strong_aug(im_size, 2)
     )
     val_ds = ds.chestnut_20210510_43m(
-        transform=val_preprocess(im_size),
+        transform=const_weak_aug(im_size),
         transform_scale=train_lab_ds.x_scaler,
     )
 
@@ -108,7 +108,7 @@ def main(
             "chestnut_nature_park",
             "20210510",
             "90deg43m85pct255deg",
-            transform=val_preprocess(im_size),
+            transform=const_weak_aug(im_size),
             transform_scale=train_lab_ds.x_scaler,
         ),
         model=m,
