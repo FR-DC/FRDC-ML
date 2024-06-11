@@ -14,6 +14,7 @@ from torchvision.transforms.v2 import (
     RandomRotation,
     RandomApply,
     Resize,
+    RandomResizedCrop,
 )
 from torchvision.transforms.v2 import RandomHorizontalFlip
 
@@ -53,11 +54,12 @@ def rand_weak_aug(size: int):
         [
             ToImage(),
             ToDtype(torch.float32, scale=True),
+            RandomResizedCrop(
+                size, scale=(0.08, 1.0), ratio=(0.95, 1.05), antialias=True
+            ),
             RandomHorizontalFlip(),
             RandomVerticalFlip(),
             RandomApply([RandomRotation((90, 90))], p=0.5),
-            Resize(size, antialias=True),
-            CenterCrop(size),
         ]
     )
 
@@ -78,10 +80,11 @@ def rand_strong_aug(size: int):
         [
             ToImage(),
             ToDtype(torch.float32, scale=True),
+            RandomResizedCrop(
+                size, scale=(0.08, 1.0), ratio=(0.9, 1.1), antialias=True
+            ),
             RandomHorizontalFlip(),
             RandomVerticalFlip(),
             RandomApply([RandomRotation((90, 90))], p=0.5),
-            Resize(size, antialias=True),
-            RandomCrop(size, pad_if_needed=False),  # Strong
         ]
     )
