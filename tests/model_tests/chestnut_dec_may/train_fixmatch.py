@@ -131,8 +131,8 @@ def main(
 
 if __name__ == "__main__":
     BATCH_SIZE = 32
-    EPOCHS = 2
-    TRAIN_ITERS = 2
+    EPOCHS = 10
+    TRAIN_ITERS = 25
     LR = 3e-3
 
     torch.set_float32_matmul_precision("high")
