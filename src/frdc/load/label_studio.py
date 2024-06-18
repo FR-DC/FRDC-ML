@@ -16,39 +16,58 @@ class Task(dict):
         bounds = []
         labels = []
 
-        ann = self["annotations"][0]
-        results = ann["result"]
-        for r_ix, r in enumerate(results):
-            r: dict
+        # Each annotation is an entire image labelled by a single person.
+        # By selecting the 0th annotation, we are usually selecting the main
+        # annotation.
+        annotation = self["annotations"][0]
+
+        # There are some metadata in `annotation`, but we just want the results
+        results = annotation["result"]
+
+        for bbox_ix, bbox in enumerate(results):
+            # 'id' = {str} 'jr4EXAKAV8'
+            # 'type' = {str} 'polygonlabels'
+            # 'value' = {dict: 3} {
+            #       'closed': True,
+            #       'points': [[x0, y0], [x1, y1], ... [xn, yn]],
+            #       'polygonlabels': ['label']
+            # }
+            # 'origin' = {str} 'manual'
+            # 'to_name' = {str} 'image'
+            # 'from_name' = {str} 'label'
+            # 'image_rotation' = {int} 0
+            # 'original_width' = {int} 450
+            # 'original_height' = {int} 600
+            bbox: dict
 
             # See Issue FRML-78: Somehow some labels are actually just metadata
-            if r["from_name"] != "label":
+            if bbox["from_name"] != "label":
                 continue
 
             # We flatten the value dict into the result dict
-            v = r.pop("value")
-            r = {**r, **v}
+            v = bbox.pop("value")
+            bbox = {**bbox, **v}
 
             # Points are in percentage, we need to convert them to pixels
-            r["points"] = [
+            bbox["points"] = [
                 (
-                    int(x * r["original_width"] / 100),
-                    int(y * r["original_height"] / 100),
+                    int(x * bbox["original_width"] / 100),
+                    int(y * bbox["original_height"] / 100),
                 )
-                for x, y in r["points"]
+                for x, y in bbox["points"]
             ]
 
             # Only take the first label as this is not a multi-label task
-            r["label"] = r.pop("polygonlabels")[0]
-            if not r["closed"]:
+            bbox["label"] = bbox.pop("polygonlabels")[0]
+            if not bbox["closed"]:
                 logger.warning(
-                    f"Label for {r['label']} @ {r['points']} not closed. "
+                    f"Label for {bbox['label']} @ {bbox['points']} not closed. "
                     f"Skipping"
                 )
                 continue
 
-            bounds.append(r["points"])
-            labels.append(r["label"])
+            bounds.append(bbox["points"])
+            labels.append(bbox["label"])
 
         return bounds, labels
 
