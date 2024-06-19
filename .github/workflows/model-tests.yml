@@ -84,8 +84,8 @@ jobs:
         working-directory: ${{ github.workspace }}/tests
         run: |
           git config --global --add safe.directory /__w/FRDC-ML/FRDC-ML
-          python3 -m model_tests.chestnut_dec_may.train_mixmatch
           python3 -m model_tests.chestnut_dec_may.train_fixmatch
+          python3 -m model_tests.chestnut_dec_may.train_mixmatch
 
       - name: Comment results via CML
         run: |

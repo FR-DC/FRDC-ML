@@ -1,8 +1,7 @@
 from copy import deepcopy
-from typing import Dict, Any
+from typing import Sequence
 
 import torch
-from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 from torch import nn
 from torchvision.models import (
     EfficientNet,
@@ -10,7 +9,6 @@ from torchvision.models import (
     EfficientNet_B1_Weights,
 )
 
-from frdc.models.utils import on_save_checkpoint, on_load_checkpoint
 from frdc.train.fixmatch_module import FixMatchModule
 from frdc.train.mixmatch_module import MixMatchModule
 from frdc.utils.ema import EMA
@@ -81,10 +79,8 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
         self,
         *,
         in_channels: int,
-        n_classes: int,
+        out_targets: Sequence[str],
         lr: float,
-        x_scaler: StandardScaler,
-        y_encoder: OrdinalEncoder,
         ema_lr: float = 0.001,
         weight_decay: float = 1e-5,
         frozen: bool = True,
@@ -93,10 +89,8 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
 
         Args:
             in_channels: The number of input channels.
-            n_classes: The number of classes.
+            out_targets: The output targets.
             lr: The learning rate.
-            x_scaler: The X input StandardScaler.
-            y_encoder: The Y input OrdinalEncoder.
             ema_lr: The learning rate for the EMA model.
             weight_decay: The weight decay.
             frozen: Whether to freeze the base model.
@@ -108,16 +102,14 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
         self.weight_decay = weight_decay
 
         super().__init__(
-            n_classes=n_classes,
-            x_scaler=x_scaler,
-            y_encoder=y_encoder,
+            out_targets=out_targets,
             sharpen_temp=0.5,
             mix_beta_alpha=0.75,
         )
 
         self.eff = efficientnet_b1_backbone(in_channels, frozen)
         self.fc = nn.Sequential(
-            nn.Linear(self.EFF_OUT_DIMS, n_classes),
+            nn.Linear(self.EFF_OUT_DIMS, self.n_classes),
             nn.Softmax(dim=1),
         )
 
@@ -139,28 +131,12 @@ class EfficientNetB1MixMatchModule(MixMatchModule):
         self.ema_updater.update(self.ema_lr)
 
     def forward(self, x: torch.Tensor):
-        """Forward pass."""
         return self.fc(self.eff(x))
 
     def configure_optimizers(self):
         return torch.optim.Adam(
             self.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-
-    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        # TODO: MixMatch's saving is a bit complicated due to the dependency
-        #       on the EMA model. This only saves the FC for both the
-        #       main model and the EMA model.
-        #       This may be the reason certain things break when loading
-        if checkpoint["hyper_parameters"]["frozen"]:
-            on_save_checkpoint(
-                self,
-                checkpoint,
-                saved_module_prefixes=("_ema_model.fc.", "fc."),
-            )
-
-    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        on_load_checkpoint(self, checkpoint)
 
 
 class EfficientNetB1FixMatchModule(FixMatchModule):
@@ -171,10 +147,8 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
         self,
         *,
         in_channels: int,
-        n_classes: int,
+        out_targets: Sequence[str],
         lr: float,
-        x_scaler: StandardScaler,
-        y_encoder: OrdinalEncoder,
         weight_decay: float = 1e-5,
         frozen: bool = True,
     ):
@@ -182,10 +156,8 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
 
         Args:
             in_channels: The number of input channels.
-            n_classes: The number of classes.
+            out_targets: The output targets.
             lr: The learning rate.
-            x_scaler: The X input StandardScaler.
-            y_encoder: The Y input OrdinalEncoder.
             weight_decay: The weight decay.
             frozen: Whether to freeze the base model.
 
@@ -195,35 +167,19 @@ class EfficientNetB1FixMatchModule(FixMatchModule):
         self.lr = lr
         self.weight_decay = weight_decay
 
-        super().__init__(
-            n_classes=n_classes,
-            x_scaler=x_scaler,
-            y_encoder=y_encoder,
-        )
+        super().__init__(out_targets=out_targets)
 
         self.eff = efficientnet_b1_backbone(in_channels, frozen)
 
         self.fc = nn.Sequential(
-            nn.Linear(self.EFF_OUT_DIMS, n_classes),
+            nn.Linear(self.EFF_OUT_DIMS, self.n_classes),
             nn.Softmax(dim=1),
         )
 
     def forward(self, x: torch.Tensor):
-        """Forward pass."""
         return self.fc(self.eff(x))
 
     def configure_optimizers(self):
         return torch.optim.Adam(
             self.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-
-    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        if checkpoint["hyper_parameters"]["frozen"]:
-            on_save_checkpoint(
-                self,
-                checkpoint,
-                saved_module_prefixes=("fc.",),
-            )
-
-    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        on_load_checkpoint(self, checkpoint)
