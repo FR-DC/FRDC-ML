@@ -8,6 +8,7 @@ from typing import Iterable, Callable, Any
 
 import numpy as np
 import pandas as pd
+import torch
 from PIL import Image
 from sklearn.preprocessing import StandardScaler
 from torch import rot90
@@ -27,6 +28,34 @@ from frdc.preprocess.extract_segments import (
 from frdc.utils import Rect
 
 logger = logging.getLogger(__name__)
+
+
+class ImageStandardScaler(StandardScaler):
+    def fit(self, X, y=None, sample_weight=None):
+        X = X.reshape(X.shape[0], -1)
+        return super().fit(X, y, sample_weight)
+
+    def transform(self, X, copy=None):
+        # X can be a list if it's just fresh out of the dataset.
+        # We need to stack it into a tensor.
+        # Quite hacky though, we should probably fix this.
+        X = torch.stack(X) if not isinstance(X, torch.Tensor) else X
+
+        shape = X.shape
+        X = X.reshape(shape[0], -1)
+        X = torch.nan_to_num(X, nan=0)
+        X = super().transform(X, copy).reshape(shape[0], *shape[1:])
+        X = torch.tensor(X)
+        return X
+
+    def inverse_transform(self, X, y=None, **fit_params):
+        shape = X.shape
+        X = X.reshape(shape[0], -1)
+        return (
+            super()
+            .inverse_transform(X, y, **fit_params)
+            .reshape(shape[0], *shape[1:])
+        )
 
 
 class FRDCConcatDataset(ConcatDataset):
@@ -75,7 +104,7 @@ class FRDCDataset(Dataset):
         date: str,
         version: str | None,
         transform: Callable[[np.ndarray], Any] = lambda x: x,
-        transform_scale: bool | StandardScaler = True,
+        transform_scale: bool | ImageStandardScaler = True,
         target_transform: Callable[[str], str] = lambda x: x,
         use_legacy_bounds: bool = False,
         polycrop: bool = False,
@@ -134,31 +163,22 @@ class FRDCDataset(Dataset):
         self.target_transform = target_transform
 
         if transform_scale is True:
-            self.x_scaler = StandardScaler()
-            self.x_scaler.fit(
-                np.concatenate(
-                    [
-                        # Segments: [H x W x C] -> [H*W, C]
-                        # Reshaping is necessary for StandardScaler
-                        segm.reshape(-1, segm.shape[-1])
-                        for segm in self.ar_segments
-                    ]
-                )
-            )
-            self.transform = lambda x: transform(
-                self.x_scaler.transform(x.reshape(-1, x.shape[-1])).reshape(
-                    x.shape
-                )
-            )
+            self.x_scaler = self.sample_image_standard_scaler()
+            self.transform = lambda x: self.x_scaler.transform(transform(x))
         elif isinstance(transform_scale, StandardScaler):
             self.x_scaler = transform_scale
-            self.transform = lambda x: transform(
-                self.x_scaler.transform(x.reshape(-1, x.shape[-1])).reshape(
-                    x.shape
-                )
-            )
+            self.transform = lambda x: self.x_scaler.transform(transform(x))
         else:
             self.x_scaler = None
+
+    def sample_image_standard_scaler(self, n_sample_rounds: int = 5):
+        import torch
+
+        x = torch.stack(
+            [d for _ in range(n_sample_rounds) for d in self[:][0]]
+        )
+        x = torch.nan_to_num(x, nan=0)
+        return ImageStandardScaler().fit(x)
 
     def __len__(self):
         return len(self.ar_segments)
