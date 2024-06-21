@@ -15,7 +15,7 @@ def ds() -> FRDCDataset:
 
 @pytest.fixture(scope="session")
 def ar_and_order(ds) -> tuple[np.ndarray, list[str]]:
-    return ds.get_ar_bands()
+    return ds._get_ar_bands()
 
 
 @pytest.fixture(scope="session")

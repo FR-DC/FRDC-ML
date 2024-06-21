@@ -25,9 +25,9 @@ ds = FRDCDatasetPreset.chestnut_20201218()
 Then, we can use the `ds` object to load objects of the dataset:
 
 ```python
-ar, order = ds.get_ar_bands()
-d = ds.get_ar_bands_as_dict()
-bounds, labels = ds.get_bounds_and_labels()
+ar, order = ds._get_ar_bands()
+d = ds._get_ar_bands_as_dict()
+bounds, labels = ds._get_bounds_and_labels()
 ```
 
 - `ar` is a stacked NDArray of the hyperspectral bands of shape (H x W x C)
@@ -54,8 +54,8 @@ argument.
 For example, to get the Wideband RGB bands, you can do:
 
 ```python
-ar, order = ds.get_ar_bands(bands=['WR', 'WG', 'WB'])
-d = ds.get_ar_bands_as_dict(bands=['WR', 'WG', 'WB'])
+ar, order = ds._get_ar_bands(bands=['WR', 'WG', 'WB'])
+d = ds._get_ar_bands_as_dict(bands=['WR', 'WG', 'WB'])
 ```
 
 This will also alter the channel order to the order of the bands provided.

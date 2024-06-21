@@ -115,14 +115,14 @@ class FRDCDataset(Dataset):
         self.date = date
         self.version = version
 
-        self.ar, self.order = self.get_ar_bands()
+        self.ar, self.order = self._get_ar_bands()
         self.targets = None
 
         if use_legacy_bounds or (LABEL_STUDIO_CLIENT is None):
-            bounds, self.targets = self.get_bounds_and_labels()
+            bounds, self.targets = self._get_bounds_and_labels()
             self.ar_segments = extract_segments_from_bounds(self.ar, bounds)
         else:
-            bounds, self.targets = self.get_polybounds_and_labels()
+            bounds, self.targets = self._get_polybounds_and_labels()
             self.ar_segments = extract_segments_from_polybounds(
                 self.ar,
                 bounds,
@@ -177,7 +177,7 @@ class FRDCDataset(Dataset):
             f"{self.version + '/' if self.version else ''}"
         )
 
-    def get_ar_bands_as_dict(
+    def _get_ar_bands_as_dict(
         self,
         bands: Iterable[str] = BAND_CONFIG.keys(),
     ) -> dict[str, np.ndarray]:
@@ -227,7 +227,7 @@ class FRDCDataset(Dataset):
 
         return d
 
-    def get_ar_bands(
+    def _get_ar_bands(
         self,
         bands: Iterable[str] = BAND_CONFIG.keys(),
     ) -> tuple[np.ndarray, list[str]]:
@@ -252,10 +252,10 @@ class FRDCDataset(Dataset):
             (H, W, C) and band_order is a list of band names.
         """
 
-        d: dict[str, np.ndarray] = self.get_ar_bands_as_dict(bands)
+        d: dict[str, np.ndarray] = self._get_ar_bands_as_dict(bands)
         return np.concatenate(list(d.values()), axis=-1), list(d.keys())
 
-    def get_bounds_and_labels(
+    def _get_bounds_and_labels(
         self,
         file_name="bounds.csv",
     ) -> tuple[list[Rect], list[str]]:
@@ -285,11 +285,11 @@ class FRDCDataset(Dataset):
             df["name"].tolist(),
         )
 
-    def get_polybounds_and_labels(self):
+    def _get_polybounds_and_labels(self):
         """Gets the bounds and labels from Label Studio."""
         return get_task(
             Path(f"{self.dataset_dir}/result.jpg")
-        ).get_bounds_and_labels()
+        )._get_bounds_and_labels()
 
     @staticmethod
     def _load_image(path: Path | str) -> np.ndarray:

@@ -28,8 +28,8 @@ Here, we'll download and load our
 from frdc.load.preset import FRDCDatasetPreset
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds.get_ar_bands()
-bounds, labels = ds.get_bounds_and_labels()
+ar, order = ds._get_ar_bands()
+bounds, labels = ds._get_bounds_and_labels()
 ```
 
 ### What Datasets are there? {collapsible="true"}
@@ -91,8 +91,8 @@ from frdc.load.preset import FRDCDatasetPreset
 from frdc.preprocess.extract_segments import extract_segments_from_bounds
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds.get_ar_bands()
-bounds, labels = ds.get_bounds_and_labels()
+ar, order = ds._get_ar_bands()
+bounds, labels = ds._get_bounds_and_labels()
 segments = extract_segments_from_bounds(ar, bounds)
 ```
 
@@ -115,8 +115,8 @@ from frdc.preprocess.extract_segments import extract_segments_from_bounds
 from frdc.preprocess.scale import scale_0_1_per_band
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds.get_ar_bands()
-bounds, labels = ds.get_bounds_and_labels()
+ar, order = ds._get_ar_bands()
+bounds, labels = ds._get_bounds_and_labels()
 segments = extract_segments_from_bounds(ar, bounds)
 segment_0_bgr = segments[0]
 segment_0_rgb = segment_0_bgr[..., [2, 1, 0]]

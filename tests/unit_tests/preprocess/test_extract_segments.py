@@ -76,13 +76,13 @@ Thus, our test is:
 
 
 def test_extract_segments_from_bounds_cropped(ds, ar):
-    bounds, labels = ds.get_bounds_and_labels()
+    bounds, labels = ds._get_bounds_and_labels()
     segments = extract_segments_from_bounds(ar, bounds, cropped=True)
     assert any(segment.shape != ar.shape for segment in segments)
 
 
 def test_extract_segments_from_bounds_no_crop(ds, ar):
-    bounds, labels = ds.get_bounds_and_labels()
+    bounds, labels = ds._get_bounds_and_labels()
     segments = extract_segments_from_bounds(ar, bounds, cropped=False)
     assert all(segment.shape == ar.shape for segment in segments)
 
