@@ -15,93 +15,78 @@ In this tutorial, we'll learn how to :
 
 ## Retrieve the Data
 
-To retrieve the data, use [FRDCDataset](load.dataset.md)
+To retrieve the data, use [FRDCDatasetPreset](load.dataset.md).
+This module presets to load explicitly known datasets.
 
-Here, we'll download and load our
+For example:
+```python
+from frdc.load.preset import FRDCDatasetPreset
 
-- `ar`: Hyperspectral Image Data
-- `order`: The order of the bands
-- `bounds`: The bounds of the trees (segments)
-- `labels`: The labels of the trees (segments)
+ds = FRDCDatasetPreset.chestnut_20201218()
+for x, y in ds:
+    print(x.shape, y)
+```
+
+You should get something like this:
+```
+(831, 700, 8) Falcataria Moluccana
+(540, 536, 8) Ficus Variegata
+(457, 660, 8) Bridelia Sp.
+...
+```
+
+- `x` is a `torch.Tensor`
+- `y` is a `str`.
+
+> [What if I can't find a preset dataset?](load.dataset.md#i-can-t-find-a-dataset)
+{style='warning'}
+
+## Iterate through the Data
+
+The dataset, when you load it, will be automatically segmented by bounds.
+Therefore, if you want to simply loop through the segments and labels,
+you can treat the dataset as an iterable.
 
 ```python
 from frdc.load.preset import FRDCDatasetPreset
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds._get_ar_bands()
-bounds, labels = ds._get_bounds_and_labels()
+for x, y in ds:
+    print(x.shape, y)
 ```
 
-### What Datasets are there? {collapsible="true"}
-
-> We recommend to use FRDCDatasetPreset. However, if you want  
-> to know what other datasets are available, you can run
-> [load.gcs](load.gcs.md)'s `list_gcs_datasets()`
-> method
-
-> Note that some datasets do not have `bounds` and `labels` available as they
-> have not been annotated yet.
-> {style='warning'}
-
-```python
-from frdc.load.gcs import list_gcs_datasets 
-print(list_gcs_datasets())
-# 0  DEBUG/0
-# 1  casuarina/20220418/183deg
-# 2  casuarina/20220418/93deg
-# 3  chestnut_nature_park/20201218
-# ...
-```
-
-- The first part of the path is the `site`, and the second part is the `date`.
-- The `version` is the rest of the path, if there isn't any, use `None`.
-
-<tabs>
-<tab title="ds/date/ver/">
-<list>
-<li><code>site=&quot;ds&quot;</code></li>
-<li><code>date=&quot;date&quot;</code></li>
-<li><code>version=&quot;ver&quot;</code></li>
-</list>
-</tab>
-<tab title="ds/date/ver/01/data/">
-<list>
-<li><code>site=&quot;ds&quot;</code></li>
-<li><code>date=&quot;date&quot;</code></li>
-<li><code>version=&quot;ver/01/data&quot;</code></li>
-</list>
-</tab>
-<tab title="ds/date/">
-<list>
-<li><code>site=&quot;ds&quot;</code></li>
-<li><code>date=&quot;date&quot;</code></li>
-<li><code>version=None</code></li>
-</list>
-</tab>
-</tabs>
-
-## Segment the Data
-
-To segment the data, use [Extract Segments](preprocessing.extract_segments.md).
-
-Here, we'll segment the data by the bounds.
+If you just want the segments or targets separately, use `.ar_segments` and 
+`.targets` respectively.
 
 ```python
 from frdc.load.preset import FRDCDatasetPreset
-from frdc.preprocess.extract_segments import extract_segments_from_bounds
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds._get_ar_bands()
-bounds, labels = ds._get_bounds_and_labels()
-segments = extract_segments_from_bounds(ar, bounds)
+for x in ds.ar_segments:
+    print(x.shape)
+
+for y in ds.targets:
+    print(y)
 ```
 
-`segments` is a list of `np.ndarray` of shape H, W, C, representing a tree.
-The order of `segments` is the same as `labels`, so you can use `labels` to
-identify the tree.
+If you want the entire image, use `.ar`.
 
-> While we have not used `order` in our example, it's useful to determine the
-> order of the bands in `ar` in other applications.
+```python
+from frdc.load.preset import FRDCDatasetPreset
+
+ds = FRDCDatasetPreset.chestnut_20201218()
+ar = ds.ar
+```
+
+Finally, to inspect the order of the bands, you can use the `order` attribute.
+
+```python
+from frdc.load.preset import FRDCDatasetPreset
+
+ds = FRDCDatasetPreset.chestnut_20201218()
+ds.order
+# > ['WB', 'WG', 'WR', 'NB', 'NG', 'NR', 'RE', 'NIR']
+```
 
 ## Plot the Data (Optional) {collapsible="true"}
 
@@ -111,19 +96,15 @@ We can then use these data to plot out the first tree segment.
 import matplotlib.pyplot as plt
 
 from frdc.load.preset import FRDCDatasetPreset
-from frdc.preprocess.extract_segments import extract_segments_from_bounds
 from frdc.preprocess.scale import scale_0_1_per_band
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds._get_ar_bands()
-bounds, labels = ds._get_bounds_and_labels()
-segments = extract_segments_from_bounds(ar, bounds)
-segment_0_bgr = segments[0]
+segment_0_bgr = ds.ar_segments[0]
 segment_0_rgb = segment_0_bgr[..., [2, 1, 0]]
 segment_0_rgb_scaled = scale_0_1_per_band(segment_0_rgb)
 
 plt.imshow(segment_0_rgb_scaled)
-plt.title(f"Tree {labels[0]}")
+plt.title(f"Tree {ds.targets[0]}")
 plt.show()
 ```
 See also: [preprocessing.scale.scale_0_1_per_band](preprocessing.scale.md)
