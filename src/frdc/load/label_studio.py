@@ -4,8 +4,6 @@ import logging
 from pathlib import Path
 from warnings import warn
 
-from label_studio_sdk.data_manager import Filters, Column, Type, Operator
-
 from frdc.conf import LABEL_STUDIO_CLIENT
 
 logger = logging.getLogger(__name__)
@@ -61,7 +59,7 @@ class Task(dict):
             bbox["label"] = bbox.pop("polygonlabels")[0]
             if not bbox["closed"]:
                 logger.warning(
-                    f"Label for {bbox['label']} @ {bbox['points']} not closed. "
+                    f"Label {bbox['label']} @ {bbox['points']} is not closed. "
                     f"Skipping"
                 )
                 continue
@@ -75,7 +73,7 @@ class Task(dict):
 def get_task(
     file_name: Path | str = "chestnut_nature_park/20201218/result.jpg",
     project_id: int = 1,
-):
+) -> Task:
     proj = LABEL_STUDIO_CLIENT.get_project(project_id)
     task_ids = [
         task["id"]
