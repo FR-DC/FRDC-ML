@@ -1,0 +1,63 @@
+# Lidar processing with R and RStudio
+
+## Imports
+
+```{r}
+library('lidR')
+library('ggplot2')
+set_lidr_threads(8)
+```
+
+## Load the LAS file
+
+```{r}
+lasPath <- 'subsampled_tiles'
+ctg <- readLAScatalog(lasPath)
+```
+
+
+```{r}
+print(ctg)
+#las_check(ctg, deep=TRUE)
+```
+
+## Produce the heightmaps (10cm spatial resolution)
+
+```{r}
+dtm_tin <- rasterize_terrain(ctg, res = 0.1, algorithm = tin())
+terra::writeRaster(dtm_tin, 'dtm.tif', filetype = "GTiff", overwrite = TRUE)
+```
+```{r}
+plot(dtm_tin, col = gray(1:50/50))
+```
+
+```{r}
+opt_output_files(ctg) <- paste0('norm/', "{*}_norm")
+ctg_norm <- normalize_height(ctg, dtm_tin)
+```
+```{r}
+chm <- rasterize_canopy(
+  ctg_norm, res = 0.1, algorithm = p2r(subcircle=0.1, na.fill = tin()))
+col <- height.colors(25)
+plot(chm, col = col)
+terra::writeRaster(chm, 'chm.tif', filetype = "GTiff", overwrite = TRUE)
+```
+
+## Produce the RGB raster (10cm spatial resolution)
+
+```{r}
+las_to_rgb <- function(las) # create user-defined function
+{
+  rgb = c(pixel_metrics(las, ~mean(R), 0.1),
+          pixel_metrics(las, ~mean(G), 0.1),
+          pixel_metrics(las, ~mean(B), 0.1))
+  #nx <- terra::minmax(rgb)    
+  #rgb <- (rgb - nx[1,]) / (nx[2,] - nx[1,])
+  return(rgb)
+}
+rgb <- catalog_map(ctg, las_to_rgb)
+nx <- terra::minmax(rgb)    
+rgb <- (rgb - nx[1,]) / (nx[2,] - nx[1,])
+terra::RGB(rgb) <- c(1,2,3)
+terra::writeRaster(rgb, 'rgb_from_las.tif')
+```   
