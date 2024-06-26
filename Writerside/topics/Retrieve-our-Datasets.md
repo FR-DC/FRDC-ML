@@ -4,9 +4,10 @@
 
 In this tutorial, we'll learn how to :
 
-- Retrieve FRDC's Hyperspectral Image Data as `np.ndarray`
-- Retrieve FRDC's Ground Truth bounds and labels
-- Slice/segment the image data by the bounds
+- Retrieve FRDC's Datasets
+- How to inspect the data
+- How to integrate it with PyTorch's DataLoader
+- How to visualize the data
 
 ## Prerequisites
 
@@ -78,15 +79,55 @@ ds = FRDCDatasetPreset.chestnut_20201218()
 ar = ds.ar
 ```
 
-Finally, to inspect the order of the bands, you can use the `order` attribute.
+Finally, inspect the order of the bands through the `band_order` attribute.
 
 ```python
 from frdc.load.preset import FRDCDatasetPreset
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ds.order
-# > ['WB', 'WG', 'WR', 'NB', 'NG', 'NR', 'RE', 'NIR']
+ds.band_order
 ```
+
+```Console
+> ['WB', 'WG', 'WR', 'NB', 'NG', 'NR', 'RE', 'NIR']
+```
+
+## Using with PyTorch's DataLoader
+
+Every `FRDCDataset` is a `Dataset` object, so you can use it with PyTorch's
+`DataLoader`. This allows you to retrieve by batches!
+
+```python
+from torch.utils.data import DataLoader
+from torchvision.transforms.v2 import CenterCrop, Compose, Resize, ToImage
+
+from frdc.load.preset import FRDCDatasetPreset
+
+ds = FRDCDatasetPreset.chestnut_20201218(
+    use_legacy_bounds=True,
+    transform=Compose([ToImage(), Resize(100), CenterCrop(100)]),
+)
+dl = DataLoader(ds, batch_size=4, shuffle=True)
+
+for x, y in dl:
+    print(x.shape, y)
+```
+
+Which should output
+
+```Console
+torch.Size([4, 8, 100, 100]) ('Falcataria Moluccana', ...)
+torch.Size([4, 8, 100, 100]) ('Clausena Excavata', ...)
+torch.Size([4, 8, 100, 100]) ('Clausena Excavata', ...)
+...
+```
+
+> **RuntimeError: stack expects each tensor to be equal size**:
+> The reason for this error is that `DataLoader` expects equal dimensions 
+> (image height and width) for all images. To fix this, you can use 
+> `torchvision.transforms.v2.Resize` to resize the images to a fixed size in
+> the above example.
+{style='warning'}
 
 ## Plot the Data (Optional) {collapsible="true"}
 
