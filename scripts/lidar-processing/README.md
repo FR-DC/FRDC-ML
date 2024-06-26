@@ -13,4 +13,4 @@ Step 6: use the attached script in rstudio. it will produce heightmaps at 10cm s
 
 Step 7: follow the instructions at https://github.com/manaakiwhenua/pycrown to install pycrown.
 
-Step 8. use the PyCrown_example.ipynb notebook to perform PyCrown segmentation.
+Step 8. use the PyCrown_example.ipynb notebook to perform PyCrown segmentation (taken from PyCrown repository, with small modifications).
