@@ -67,6 +67,7 @@ services:
       - POSTGRES_HOST_AUTH_METHOD=trust
     volumes:
       - ${POSTGRES_DATA_DIR:-./postgres-data}:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_DIR:-./postgres-backups}:/var/lib/postgresql/backups
       - ./deploy/pgsql/certs:/var/lib/postgresql/certs:ro
     networks:
       - label-studio

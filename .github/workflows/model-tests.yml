@@ -53,7 +53,6 @@ jobs:
           python3 -m pip install flake8 pytest poetry
           poetry export --with dev --without-hashes -o requirements.txt
           pip3 install -r requirements.txt
-          pip3 install torch torchvision torchaudio
 
       - name: Check CUDA is available
         run: nvidia-smi
@@ -81,11 +80,16 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
+      - name: Copy over .env
+        run: |
+          cp .env.example .env
+          
       - name: Run Model Training
         working-directory: ${{ github.workspace }}/tests
         run: |
           git config --global --add safe.directory /__w/FRDC-ML/FRDC-ML
-          python3 -m model_tests.chestnut_dec_may.train
+          python3 -m model_tests.chestnut_dec_may.train_fixmatch
+          python3 -m model_tests.chestnut_dec_may.train_mixmatch
 
       - name: Comment results via CML
         run: |

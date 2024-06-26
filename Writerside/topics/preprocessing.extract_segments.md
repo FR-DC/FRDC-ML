@@ -139,8 +139,8 @@ from frdc.load.preset import FRDCDatasetPreset
 from frdc.preprocess.extract_segments import extract_segments_from_bounds
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds.get_ar_bands()
-bounds, labels = ds.get_bounds_and_labels()
+ar, order = ds._get_ar_bands()
+bounds, labels = ds._get_legacy_bounds_and_labels()
 
 segments: list[np.ndarray] = extract_segments_from_bounds(ar, bounds)
 ```
@@ -163,7 +163,7 @@ from frdc.preprocess.extract_segments import (
 )
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds.get_ar_bands()
+ar, order = ds._get_ar_bands()
 ar = scale_0_1_per_band(ar)
 ar_mask = threshold_binary_mask(ar, -1, 90 / 256)
 ar_mask = remove_small_objects(ar_mask, min_size=100, connectivity=2)

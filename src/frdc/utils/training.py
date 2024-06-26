@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from pathlib import Path
 
 import lightning as pl
@@ -45,13 +46,11 @@ def plot_confusion_matrix(
 
 def predict(
     ds: FRDCDataset,
-    model_cls: type[pl.LightningModule],
-    ckpt_pth: Path | str | None = None,
+    model: pl.LightningModule,
 ) -> tuple[np.ndarray, np.ndarray]:
-    m = model_cls.load_from_checkpoint(ckpt_pth)
     # Make predictions
     trainer = pl.Trainer(logger=False)
-    pred = trainer.predict(m, dataloaders=DataLoader(ds, batch_size=32))
+    pred = trainer.predict(model, dataloaders=DataLoader(ds, batch_size=32))
 
     y_preds = []
     y_trues = []

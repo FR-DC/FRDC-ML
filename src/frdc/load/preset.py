@@ -6,6 +6,7 @@ from typing import Callable, Any
 
 import numpy as np
 import torch
+from sklearn.preprocessing import StandardScaler
 from torchvision.transforms.v2 import (
     Compose,
     ToImage,
@@ -13,7 +14,11 @@ from torchvision.transforms.v2 import (
     Resize,
 )
 
-from frdc.load.dataset import FRDCDataset, FRDCUnlabelledDataset
+from frdc.load.dataset import (
+    FRDCDataset,
+    FRDCUnlabelledDataset,
+    FRDCConstRotatedDataset,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,38 +52,75 @@ class FRDCDatasetPartial:
 
     def __call__(
         self,
-        transform: Callable[[list[np.ndarray]], Any] = None,
-        target_transform: Callable[[list[str]], list[str]] = None,
+        transform: Callable[[np.ndarray], Any] = lambda x: x,
+        transform_scale: bool | StandardScaler = True,
+        target_transform: Callable[[str], str] = lambda x: x,
         use_legacy_bounds: bool = False,
+        polycrop: bool = False,
+        polycrop_value: Any = np.nan,
     ):
-        """Alias for labelled()."""
+        """Alias for labelled().
+
+        Args:
+            transform: The transform to apply to the data.
+            transform_scale: Whether to scale the data. If True, it will fit
+                a StandardScaler to the data. If a StandardScaler is passed,
+                it will use that instead. If False, it will not scale the data.
+            target_transform: The transform to apply to the labels.
+            use_legacy_bounds: Whether to use the legacy bounds.
+            polycrop: Whether to use polycrop.
+            polycrop_value: The value to use for polycrop.
+        """
         return self.labelled(
             transform,
+            transform_scale,
             target_transform,
-            use_legacy_bounds,
+            use_legacy_bounds=use_legacy_bounds,
+            polycrop=polycrop,
+            polycrop_value=polycrop_value,
         )
 
     def labelled(
         self,
-        transform: Callable[[list[np.ndarray]], Any] = None,
-        target_transform: Callable[[list[str]], list[str]] = None,
+        transform: Callable[[np.ndarray], Any] = lambda x: x,
+        transform_scale: bool | StandardScaler = True,
+        target_transform: Callable[[str], str] = lambda x: x,
         use_legacy_bounds: bool = False,
+        polycrop: bool = False,
+        polycrop_value: Any = np.nan,
     ):
-        """Returns the Labelled Dataset."""
+        """Returns the Labelled Dataset.
+
+        Args:
+            transform: The transform to apply to the data.
+            transform_scale: Whether to scale the data. If True, it will fit
+                a StandardScaler to the data. If a StandardScaler is passed,
+                it will use that instead. If False, it will not scale the data.
+            target_transform: The transform to apply to the labels.
+            use_legacy_bounds: Whether to use the legacy bounds.
+            polycrop: Whether to use polycrop.
+            polycrop_value: The value to use for polycrop.
+        """
         return FRDCDataset(
             self.site,
             self.date,
             self.version,
-            transform,
-            target_transform,
-            use_legacy_bounds,
+            transform=transform,
+            transform_scale=transform_scale,
+            target_transform=target_transform,
+            use_legacy_bounds=use_legacy_bounds,
+            polycrop=polycrop,
+            polycrop_value=polycrop_value,
         )
 
     def unlabelled(
         self,
-        transform: Callable[[list[np.ndarray]], Any] = None,
-        target_transform: Callable[[list[str]], list[str]] = None,
+        transform: Callable[[np.ndarray], Any] = lambda x: x,
+        transform_scale: bool | StandardScaler = True,
+        target_transform: Callable[[str], str] = lambda x: x,
         use_legacy_bounds: bool = False,
+        polycrop: bool = False,
+        polycrop_value: Any = np.nan,
     ):
         """Returns the Unlabelled Dataset.
 
@@ -86,14 +128,65 @@ class FRDCDatasetPartial:
             This simply masks away the labels during __getitem__.
             The same behaviour can be achieved by setting __class__ to
             FRDCUnlabelledDataset, but this is a more convenient way to do so.
+
+        Args:
+            transform: The transform to apply to the data.
+            transform_scale: Whether to scale the data. If True, it will fit
+                a StandardScaler to the data. If a StandardScaler is passed,
+                it will use that instead. If False, it will not scale the data.
+            target_transform: The transform to apply to the labels.
+            use_legacy_bounds: Whether to use the legacy bounds.
+            polycrop: Whether to use polycrop.
+            polycrop_value: The value to use for polycrop.
         """
         return FRDCUnlabelledDataset(
             self.site,
             self.date,
             self.version,
-            transform,
-            target_transform,
-            use_legacy_bounds,
+            transform=transform,
+            transform_scale=transform_scale,
+            target_transform=target_transform,
+            use_legacy_bounds=use_legacy_bounds,
+            polycrop=polycrop,
+            polycrop_value=polycrop_value,
+        )
+
+    def const_rotated(
+        self,
+        transform: Callable[[np.ndarray], Any] = lambda x: x,
+        transform_scale: bool | StandardScaler = True,
+        target_transform: Callable[[str], str] = lambda x: x,
+        use_legacy_bounds: bool = False,
+        polycrop: bool = False,
+        polycrop_value: Any = np.nan,
+    ):
+        """Returns the Unlabelled Dataset.
+
+        Notes:
+            This simply masks away the labels during __getitem__.
+            The same behaviour can be achieved by setting __class__ to
+            FRDCUnlabelledDataset, but this is a more convenient way to do so.
+
+        Args:
+            transform: The transform to apply to the data.
+            transform_scale: Whether to scale the data. If True, it will fit
+                a StandardScaler to the data. If a StandardScaler is passed,
+                it will use that instead. If False, it will not scale the data.
+            target_transform: The transform to apply to the labels.
+            use_legacy_bounds: Whether to use the legacy bounds.
+            polycrop: Whether to use polycrop.
+            polycrop_value: The value to use for polycrop.
+        """
+        return FRDCConstRotatedDataset(
+            self.site,
+            self.date,
+            self.version,
+            transform=transform,
+            transform_scale=transform_scale,
+            target_transform=target_transform,
+            use_legacy_bounds=use_legacy_bounds,
+            polycrop=polycrop,
+            polycrop_value=polycrop_value,
         )
 
 
@@ -140,20 +233,21 @@ class FRDCDatasetPreset:
         "chestnut_nature_park", "20210510", "90deg60m84.5pct255deg"
     )
     casuarina_20220418_183deg = FRDCDatasetPartial(
-        "casuarina_nature_park", "20220418", "183deg"
+        "casuarina", "20220418", "183deg"
     )
     casuarina_20220418_93deg = FRDCDatasetPartial(
-        "casuarina_nature_park", "20220418", "93deg"
+        "casuarina", "20220418", "93deg"
     )
-    DEBUG = lambda resize=299: FRDCDatasetPartial(
-        site="DEBUG", date="0", version=None
-    )(
-        transform=Compose(
-            [
-                ToImage(),
-                ToDtype(torch.float32),
-                Resize((resize, resize)),
-            ]
-        ),
-        target_transform=None,
-    )
+
+    @staticmethod
+    def _debug(resize=299, use_legacy_bounds=False):
+        return FRDCDatasetPartial(site="DEBUG", date="0", version=None)(
+            transform=Compose(
+                [
+                    ToImage(),
+                    ToDtype(torch.float32),
+                    Resize((resize, resize)),
+                ]
+            ),
+            use_legacy_bounds=use_legacy_bounds,
+        )

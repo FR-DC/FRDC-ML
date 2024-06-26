@@ -76,13 +76,13 @@ Thus, our test is:
 
 
 def test_extract_segments_from_bounds_cropped(ds, ar):
-    bounds, labels = ds.get_bounds_and_labels()
+    bounds, labels = ds._get_legacy_bounds_and_labels()
     segments = extract_segments_from_bounds(ar, bounds, cropped=True)
     assert any(segment.shape != ar.shape for segment in segments)
 
 
 def test_extract_segments_from_bounds_no_crop(ds, ar):
-    bounds, labels = ds.get_bounds_and_labels()
+    bounds, labels = ds._get_legacy_bounds_and_labels()
     segments = extract_segments_from_bounds(ar, bounds, cropped=False)
     assert all(segment.shape == ar.shape for segment in segments)
 
@@ -163,10 +163,22 @@ def test_extract_segments_from_polybounds():
         ar,
         poly,
         cropped=True,
-        polycropped=True,
+        polycrop=True,
     )[0]
     assert s.shape == (3, 3, 1)
     assert np.isnan(s[-1, -1, 0])
+
+    # 0   1   2
+    # 4   5   6
+    # 8   9   0
+    s = extract_segments_from_polybounds(
+        ar,
+        poly,
+        cropped=True,
+        polycrop=True,
+        polycrop_value=0,
+    )[0]
+    assert s[-1, -1, 0] == 0
 
     # 0   1   2   nan
     # 4   5   6   nan
@@ -187,7 +199,7 @@ def test_extract_segments_from_polybounds():
         ar,
         poly,
         cropped=True,
-        polycropped=False,
+        polycrop=False,
     )[0]
     assert s.shape == (3, 3, 1)
     assert not np.isnan(s).any()

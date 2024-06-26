@@ -4,6 +4,9 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
+    paths:
+      - "src/frdc/**"
+      - "poetry.lock"
 
 jobs:
   build:
@@ -38,7 +41,6 @@ jobs:
           python -m pip install flake8 pytest poetry          
           poetry export --with dev --without-hashes -o requirements.txt
           pip install -r requirements.txt
-          pip install torch torchaudio torchvision lightning
 
       - name: Lint with flake8
         run: |
@@ -46,6 +48,10 @@ jobs:
           flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Copy over .env
+        run: |
+          cp .env.example .env
 
       - name: Test with pytest
         run: |

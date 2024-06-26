@@ -11,80 +11,77 @@ from torchvision.transforms.v2 import (
     RandomVerticalFlip,
     RandomCrop,
     CenterCrop,
+    RandomRotation,
+    RandomApply,
+    Resize,
 )
 from torchvision.transforms.v2 import RandomHorizontalFlip
-
-from frdc.load.dataset import FRDCDataset
-from frdc.models.inceptionv3 import InceptionV3MixMatchModule
 
 THIS_DIR = Path(__file__).parent
 
 BANDS = ["NB", "NG", "NR", "RE", "NIR"]
 
 
-class FRDCDatasetFlipped(FRDCDataset):
-    def __len__(self):
-        """Assume that the dataset is 4x larger than it actually is.
-
-        For example, for index 0, we return the original image. For index 1, we
-        return the horizontally flipped image and so on, until index 3.
-        Then, return the next image for index 4, and so on.
-        """
-        return super().__len__() * 4
-
-    def __getitem__(self, idx):
-        """Alter the getitem method to implement the logic above."""
-        x, y = super().__getitem__(int(idx // 4))
-        if idx % 4 == 0:
-            return x, y
-        elif idx % 4 == 1:
-            return RandomHorizontalFlip(p=1)(x), y
-        elif idx % 4 == 2:
-            return RandomVerticalFlip(p=1)(x), y
-        elif idx % 4 == 3:
-            return RandomHorizontalFlip(p=1)(RandomVerticalFlip(p=1)(x)), y
+def n_times(f, n: int):
+    return lambda x: [f(x) for _ in range(n)]
 
 
-def preprocess(x):
-    return Compose(
-        [
-            ToImage(),
-            ToDtype(torch.float32, scale=True),
-            CenterCrop(
-                [
-                    InceptionV3MixMatchModule.MIN_SIZE,
-                    InceptionV3MixMatchModule.MIN_SIZE,
-                ],
-            ),
-        ]
-    )(x)
+def n_rand_weak_aug(size, n_aug: int = 2):
+    return n_times(rand_weak_aug(size), n_aug)
 
 
-def train_preprocess(x):
-    return Compose(
-        [
-            ToImage(),
-            ToDtype(torch.float32, scale=True),
-            RandomCrop(
-                [
-                    InceptionV3MixMatchModule.MIN_SIZE,
-                    InceptionV3MixMatchModule.MIN_SIZE,
-                ],
-                pad_if_needed=True,
-                padding_mode="constant",
-                fill=0,
-            ),
-            RandomHorizontalFlip(),
-            RandomVerticalFlip(),
-        ]
-    )(x)
+def n_rand_strong_aug(size, n_aug: int = 2):
+    return n_times(rand_strong_aug(size), n_aug)
 
 
-def train_unl_preprocess(n_aug: int = 2):
+def n_rand_weak_strong_aug(size, n_aug: int = 2):
     def f(x):
-        # This simulates the n_aug of MixMatch
-        return (
-            [train_preprocess(x) for _ in range(n_aug)] if n_aug > 0 else None
-        )
+        # x_weak = [weak_0, weak_1, ..., weak_n]
+        x_weak = n_rand_weak_aug(size, n_aug)(x)
+        # x_strong = [strong_0, strong_1, ..., strong_n]
+        x_strong = n_rand_strong_aug(size, n_aug)(x)
+        # x_paired = [(weak_0, strong_0), (weak_1, strong_1),
+        #             ..., (weak_n, strong_n)]
+        x_paired = list(zip(*[x_weak, x_strong]))
+        return x_paired
 
     return f
+
+
+def rand_weak_aug(size: int):
+    return Compose(
+        [
+            ToImage(),
+            ToDtype(torch.float32, scale=True),
+            Resize(size, antialias=True),
+            CenterCrop(size),
+            RandomHorizontalFlip(),
+            RandomVerticalFlip(),
+            RandomApply([RandomRotation((90, 90))], p=0.5),
+        ]
+    )
+
+
+def const_weak_aug(size: int):
+    return Compose(
+        [
+            ToImage(),
+            ToDtype(torch.float32, scale=True),
+            Resize(size, antialias=True),
+            CenterCrop(size),
+        ]
+    )
+
+
+def rand_strong_aug(size: int):
+    return Compose(
+        [
+            ToImage(),
+            ToDtype(torch.float32, scale=True),
+            Resize(size, antialias=True),
+            RandomCrop(size, pad_if_needed=False),
+            RandomHorizontalFlip(),
+            RandomVerticalFlip(),
+            RandomApply([RandomRotation((90, 90))], p=0.5),
+        ]
+    )

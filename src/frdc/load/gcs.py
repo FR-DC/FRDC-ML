@@ -39,8 +39,6 @@ def download(
     Raises:
         ValueError: If there are multiple blobs that match the path_glob.
         FileNotFoundError: If the file does not exist in GCS.
-        FileExistsError: If the file already exists locally and the hashes
-            match.
 
     Returns:
         The local path to the downloaded file.

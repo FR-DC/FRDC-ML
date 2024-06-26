@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable
+from typing import Iterable, Any
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -144,7 +144,8 @@ def extract_segments_from_polybounds(
     ar: np.ndarray,
     polybounds: Iterable[tuple[int, int]],
     cropped: bool = True,
-    polycropped: bool = True,
+    polycrop: bool = True,
+    polycrop_value: Any = np.nan,
 ) -> list[np.ndarray]:
     """Extracts segments from polygon bounds.
 
@@ -153,8 +154,9 @@ def extract_segments_from_polybounds(
         polybounds: The bounds of the segment to extract. A list of points
             [(x0, y0), (x1, y1), ...].
         cropped: Whether to crop the segments to the smallest possible size.
-        polycropped: Whether to further mask out the cropped image with the
+        polycrop: Whether to further mask out the cropped image with the
             polygon mask. The mask will create nan values in the cropped image.
+        polycrop_value: The value to use for padding the polycropped image.
 
     Examples:
         Given an image::
@@ -218,10 +220,12 @@ def extract_segments_from_polybounds(
             # Prepare the original image for cropping
             im_crop = ar[min_y:max_y, min_x:max_x]
 
-            if polycropped:
+            if polycrop:
                 # Mask out the cropped image with our polygon mask
                 im_pcrop = np.where(
-                    np.array(im_mask)[..., np.newaxis] == 0, np.nan, im_crop
+                    np.array(im_mask)[..., np.newaxis] == 0,
+                    polycrop_value,
+                    im_crop,
                 )
                 ar_segments.append(im_pcrop)
             else:

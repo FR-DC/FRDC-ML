@@ -1,0 +1,121 @@
+<View>
+    <Header size="2">Replica FRDC Server</Header>
+  	<Header size="6" style="color:red">
+      This is a replica server. All changes will NOT be reflected onto the Machine Learning Pipeline.
+  	</Header>
+    <Image name="image" value="$img" zoom="true" zoomControl="true"/>
+    <Header size="8">Select Species</Header>
+    <View style="height:200px; overflow:auto;">
+        <Filter name="filterSpecies" toName="label" hotkey="shift+f"
+                minlength="0" placeholder="Type Species Name"/>
+        <PolygonLabels name="label" toName="image" strokeWidth="3"
+                       pointSize="small" opacity="0.1" required="True">
+
+            <Label value="Alstonia Angulstiloba" background="#FFA39E"/>
+            <Label value="Bridelia Sp." background="#D4380D"/>
+            <Label value="Calophyllum" background="#FFC069"/>
+            <Label value="Campnosperma Auriculatum" background="#AD8B00"/>
+            <Label value="Cinnamomum Iners" background="#D3F261"/>
+            <Label value="Claoxylon Indicum" background="#389E0D"/>
+            <Label value="Clausena Excavata" background="#5CDBD3"/>
+            <Label value="Cratoxylum Formosum" background="#096DD9"/>
+            <Label value="Dillenia Suffruticosa" background="#ADC6FF"/>
+            <Label value="Fagraea fragans" background="#389E0D"/>
+            <Label value="Falcataria Moluccana" background="#9254DE"/>
+            <Label value="Ficus Variegata" background="#F759AB"/>
+            <Label value="Ixonanthes reticulata" background="#008BAD"/>
+            <Label value="Koompassia malaccensis" background="#FFA39E"/>
+            <Label value="Leea Indica" background="#FFA39E"/>
+            <Label value="Litsea firma" background="#F8FE00"/>
+            <Label value="Macaranga Gigantea" background="#D4380D"/>
+            <Label value="Palm Tree" background="#FFC069"/>
+            <Label value="Pennisetum Purpureum" background="#AD8B00"/>
+            <Label value="Pometia Pinnata" background="#D3F261"/>
+            <Label value="Prunus polystachya" background="#F3A201"/>
+            <Label value="Sandoricum Koetjape" background="#389E0D"/>
+            <Label value="Shorea Leprosula" background="#5CDBD3"/>
+            <Label value="Spathodea Campanulatum" background="#096DD9"/>
+            <Label value="Sterculia Parviflora" background="#E178C5"/>
+            <Label value="Syzygium grande" background="#5C0BD3"/>
+            <Label value="Syzygium Polyanthum" background="#9254DE"/>
+            <Label value="Terminalia Catappa" background="#F759AB"/>
+            <Label value="_Unknown" background="#676767"/>
+        </PolygonLabels>
+    </View>
+
+    <View visibleWhen="region-selected">
+        <Header>Select Quality</Header>
+        <Choices name="Quality" toName="image" perRegion="true"
+                 choice="single-radio" required="false">
+            <Choice value="Good" background="green"/>
+            <Choice value="Bad" background="red"/>
+        </Choices>
+
+        <Choices name="BadRatingReason" toName="image" choice="multiple"
+                 showInLine="true" visibleWhen="choice-selected"
+                 whenTagName="Quality" whenChoiceValue="Bad" perRegion="true">
+
+            <Choice value="Artefacts Present"/>
+            <Choice value="Brightness Problem"/>
+            <Choice value="Others (write in comment)"/>
+
+            <View visibleWhen="choice-selected" whenTagName="BadRatingReason"
+                  whenChoiceValue="Others (write in comment)">
+                <TextArea name="BadRatingReasonComment" toName="image"
+                          perRegion="true" placeholder="Write the reason">
+                </TextArea>
+            </View>
+
+        </Choices>
+        <Header>Submitted By (Team):</Header>
+        <View>
+            <!--Filter name="SubmitTeamFilter" toName="Team" hotkey="shift+f" minlength="0" placeholder="type team name"/ -->
+            <Labels required="false" name="Team" toName="image"
+                    showInline="false" perRegion="true">
+                <Label value="EngineeringSubmit"/>
+                <Label value="EcologySubmit"/>
+            </Labels>
+            <Header size="7">UserID (Submit):</Header>
+            <!--TextArea required="false" name="SubmitUserId" toName="image" placeholder="userID" perRegion="true"/ -->
+            <Choices name="SubmitUserIdChoice" toName="Team" perRegion="true"
+                     choice="single-radio" visibleWhen="region-selected">
+                <Choice value="jjsit"/>
+                <Choice value="shyap"/>
+                <Choice value="jchang"/>
+                <Choice value="bchew"/>
+                <Choice value="yksim"/>
+                <Choice value="ahassan"/>
+            </Choices>
+        </View>
+
+        <Header>Checked By (Team):</Header>
+        <View>
+            <!--Filter name="CheckTeamFilter" toName="CheckTeam" hotkey="shift+f" minlength="0" placeholder="type team name"/ -->
+            <Labels required="false" name="CheckTeam" toName="image"
+                    showInline="false" perRegion="true">
+                <Label value="EngineeringChecked_Agree"/>
+                <Label value="EcologyChecked_Agree"/>
+                <Label value="EngineeringChecked_Disagree"/>
+                <Label value="EcologyChecked_Disagree"/>
+
+
+            </Labels>
+            <Header size="7">UserID (Check):</Header>
+            <TextArea name="CheckUserId" toName="image" placeholder="userID"
+                      perRegion="true"/>
+        </View>
+        <Header>General Comment</Header>
+        <View>
+            <Labels required="false" name="CommentType" toName="image"
+                    showInline="false" perRegion="true">
+                <Label value="New Comment"/>
+                <Label value="Resolved Comment"/>
+            </Labels>
+            <TextArea name="GeneralComment" toName="image" perRegion="true"
+                      placeholder="General Comment">
+            </TextArea>
+        </View>
+
+    </View>
+
+</View>
