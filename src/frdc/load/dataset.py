@@ -74,7 +74,7 @@ class FRDCDataset(Dataset):
         self.date = date
         self.version = version
 
-        self.ar, self.order = self._get_ar_bands()
+        self.ar, self.band_order = self._get_ar_bands()
         self.targets = None
 
         if use_legacy_bounds:
