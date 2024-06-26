@@ -140,7 +140,7 @@ from frdc.preprocess.extract_segments import extract_segments_from_bounds
 
 ds = FRDCDatasetPreset.chestnut_20201218()
 ar, order = ds._get_ar_bands()
-bounds, labels = ds._get_bounds_and_labels()
+bounds, labels = ds._get_legacy_bounds_and_labels()
 
 segments: list[np.ndarray] = extract_segments_from_bounds(ar, bounds)
 ```

@@ -21,7 +21,7 @@ def test_get_ar_bands_ordering(ds):
 
 
 def test_get_bounds(ds):
-    bounds, labels = ds._get_bounds_and_labels()
+    bounds, labels = ds._get_legacy_bounds_and_labels()
     assert all([isinstance(b, Rect) for b in bounds])
     assert len(bounds) == len(labels)
 

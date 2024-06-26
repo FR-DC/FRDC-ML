@@ -5,4 +5,4 @@ from utils import requires_label_studio
 @requires_label_studio
 def test_get_bounds_and_labels():
     task = get_task("DEBUG/0/result.jpg")
-    bounds, labels = task._get_bounds_and_labels()
+    bounds, labels = task._get_legacy_bounds_and_labels()

@@ -27,7 +27,7 @@ Then, we can use the `ds` object to load objects of the dataset:
 ```python
 ar, order = ds._get_ar_bands()
 d = ds._get_ar_bands_as_dict()
-bounds, labels = ds._get_bounds_and_labels()
+bounds, labels = ds._get_legacy_bounds_and_labels()
 ```
 
 - `ar` is a stacked NDArray of the hyperspectral bands of shape (H x W x C)
