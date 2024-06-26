@@ -10,7 +10,7 @@ wandb.init(mode="disabled")
 
 @pytest.fixture(scope="session")
 def ds() -> FRDCDataset:
-    return FRDCDatasetPreset.DEBUG()
+    return FRDCDatasetPreset._debug(use_legacy_bounds=True)
 
 
 @pytest.fixture(scope="session")
