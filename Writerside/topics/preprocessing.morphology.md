@@ -35,7 +35,7 @@ from frdc.preprocess.morphology import (
 )
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds.get_ar_bands()
+ar, order = ds._get_ar_bands()
 mask = threshold_binary_mask(ar, order.index('NIR'), 90 / 256)
 ar_label = binary_watershed(mask)
 ```

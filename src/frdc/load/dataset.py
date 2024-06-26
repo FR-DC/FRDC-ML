@@ -14,11 +14,8 @@ from torch import rot90
 from torch.utils.data import Dataset, ConcatDataset
 from torchvision.transforms.v2.functional import hflip
 
-from frdc.conf import (
-    BAND_CONFIG,
-    LABEL_STUDIO_CLIENT,
-)
-from frdc.load.gcs import download
+from frdc.conf import BAND_CONFIG, LABEL_STUDIO_CLIENT
+from frdc.load import gcs
 from frdc.load.label_studio import get_task
 from frdc.preprocess.extract_segments import (
     extract_segments_from_bounds,
@@ -27,44 +24,6 @@ from frdc.preprocess.extract_segments import (
 from frdc.utils import Rect
 
 logger = logging.getLogger(__name__)
-
-
-class FRDCConcatDataset(ConcatDataset):
-    """ConcatDataset for FRDCDataset.
-
-    Notes:
-        This handles concatenating the targets when you add two datasets
-        together, furthermore, implements the addition operator to
-        simplify the syntax.
-
-    Examples:
-        If you have two datasets, ds1 and ds2, you can concatenate them::
-
-            ds = ds1 + ds2
-
-        `ds` will be a FRDCConcatDataset, which is a subclass of ConcatDataset.
-
-        You can further add to a concatenated dataset::
-
-            ds = ds1 + ds2
-            ds = ds + ds3
-
-        Finallu, all concatenated datasets have the `targets` property, which
-        is a list of all the targets in the datasets::
-
-            (ds1 + ds2).targets == ds1.targets + ds2.targets
-    """
-
-    def __init__(self, datasets: list[FRDCDataset]):
-        super().__init__(datasets)
-        self.datasets: list[FRDCDataset] = datasets
-
-    @property
-    def targets(self):
-        return [t for ds in self.datasets for t in ds.targets]
-
-    def __add__(self, other: FRDCDataset) -> FRDCConcatDataset:
-        return FRDCConcatDataset([*self.datasets, other])
 
 
 @dataclass
@@ -115,21 +74,29 @@ class FRDCDataset(Dataset):
         self.date = date
         self.version = version
 
-        self.ar, self.order = self.get_ar_bands()
+        self.ar, self.band_order = self._get_ar_bands()
         self.targets = None
 
-        if use_legacy_bounds or (LABEL_STUDIO_CLIENT is None):
-            bounds, self.targets = self.get_bounds_and_labels()
+        if use_legacy_bounds:
+            bounds, self.targets = self._get_legacy_bounds_and_labels()
             self.ar_segments = extract_segments_from_bounds(self.ar, bounds)
         else:
-            bounds, self.targets = self.get_polybounds_and_labels()
-            self.ar_segments = extract_segments_from_polybounds(
-                self.ar,
-                bounds,
-                cropped=True,
-                polycrop=polycrop,
-                polycrop_value=polycrop_value,
-            )
+            if LABEL_STUDIO_CLIENT:
+                bounds, self.targets = self._get_polybounds_and_labels()
+                self.ar_segments = extract_segments_from_polybounds(
+                    self.ar,
+                    bounds,
+                    cropped=True,
+                    polycrop=polycrop,
+                    polycrop_value=polycrop_value,
+                )
+            else:
+                raise ConnectionError(
+                    "Cannot connect to Label Studio, cannot use live bounds. "
+                    "Retry with use_legacy_bounds=True to attempt to use the "
+                    "legacy bounds.csv file."
+                )
+
         self.transform = transform
         self.target_transform = target_transform
 
@@ -177,7 +144,7 @@ class FRDCDataset(Dataset):
             f"{self.version + '/' if self.version else ''}"
         )
 
-    def get_ar_bands_as_dict(
+    def _get_ar_bands_as_dict(
         self,
         bands: Iterable[str] = BAND_CONFIG.keys(),
     ) -> dict[str, np.ndarray]:
@@ -211,23 +178,23 @@ class FRDCDataset(Dataset):
                 f"Invalid band name. Valid band names are {BAND_CONFIG.keys()}"
             )
 
-        for name, (glob, transform) in config.items():
-            fp = download(fp=self.dataset_dir / glob)
+        for band_name, (glob, band_transform) in config.items():
+            fp = gcs.download(fp=self.dataset_dir / glob)
 
             # We may use the same file multiple times, so we cache it
             if fp in fp_cache:
                 logging.debug(f"Cache hit for {fp}, using cached image...")
-                im = fp_cache[fp]
+                im_band = fp_cache[fp]
             else:
                 logging.debug(f"Cache miss for {fp}, loading...")
-                im = self._load_image(fp)
-                fp_cache[fp] = im
+                im_band = self._load_image(fp)
+                fp_cache[fp] = im_band
 
-            d[name] = transform(im)
+            d[band_name] = band_transform(im_band)
 
         return d
 
-    def get_ar_bands(
+    def _get_ar_bands(
         self,
         bands: Iterable[str] = BAND_CONFIG.keys(),
     ) -> tuple[np.ndarray, list[str]]:
@@ -252,10 +219,10 @@ class FRDCDataset(Dataset):
             (H, W, C) and band_order is a list of band names.
         """
 
-        d: dict[str, np.ndarray] = self.get_ar_bands_as_dict(bands)
+        d: dict[str, np.ndarray] = self._get_ar_bands_as_dict(bands)
         return np.concatenate(list(d.values()), axis=-1), list(d.keys())
 
-    def get_bounds_and_labels(
+    def _get_legacy_bounds_and_labels(
         self,
         file_name="bounds.csv",
     ) -> tuple[list[Rect], list[str]]:
@@ -278,14 +245,20 @@ class FRDCDataset(Dataset):
             "This is pending to be deprecated in favour of pulling "
             "annotations from Label Studio."
         )
-        fp = download(fp=self.dataset_dir / file_name)
+        try:
+            fp = gcs.download(fp=self.dataset_dir / file_name)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"bounds.csv not found in {self.dataset_dir}. "
+                f"Please check the file exists."
+            )
         df = pd.read_csv(fp)
         return (
             [Rect(i.x0, i.y0, i.x1, i.y1) for i in df.itertuples()],
             df["name"].tolist(),
         )
 
-    def get_polybounds_and_labels(self):
+    def _get_polybounds_and_labels(self):
         """Gets the bounds and labels from Label Studio."""
         return get_task(
             Path(f"{self.dataset_dir}/result.jpg")
@@ -373,3 +346,41 @@ class FRDCConstRotatedDataset(FRDCDataset):
             x_ = hflip(rot90(x, 3, (1, 2)))
 
         return x_, y
+
+
+class FRDCConcatDataset(ConcatDataset):
+    """ConcatDataset for FRDCDataset.
+
+    Notes:
+        This handles concatenating the targets when you add two datasets
+        together, furthermore, implements the addition operator to
+        simplify the syntax.
+
+    Examples:
+        If you have two datasets, ds1 and ds2, you can concatenate them::
+
+            ds = ds1 + ds2
+
+        `ds` will be a FRDCConcatDataset, which is a subclass of ConcatDataset.
+
+        You can further add to a concatenated dataset::
+
+            ds = ds1 + ds2
+            ds = ds + ds3
+
+        Finallu, all concatenated datasets have the `targets` property, which
+        is a list of all the targets in the datasets::
+
+            (ds1 + ds2).targets == ds1.targets + ds2.targets
+    """
+
+    def __init__(self, datasets: list[FRDCDataset]):
+        super().__init__(datasets)
+        self.datasets: list[FRDCDataset] = datasets
+
+    @property
+    def targets(self):
+        return [t for ds in self.datasets for t in ds.targets]
+
+    def __add__(self, other: FRDCDataset) -> FRDCConcatDataset:
+        return FRDCConcatDataset([*self.datasets, other])

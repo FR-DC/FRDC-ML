@@ -10,11 +10,11 @@ Load dataset objects from our GCS bucket.
 
 ## Usage
 
-Firstly, to load a dataset instance, you need to
-initiliaze a `FRDCDataset` object, providing the site, date, and
-version.
-
-For example, to load our Chestnut Nature Park dataset. 
+Firstly, to load a dataset instance, you need to initiliaze a `FRDCDataset`
+object, providing the site, date, and version.
+ 
+We recommend using the `FRDCDatasetPreset` module to load explicitly known
+datasets.
 
 ```python
 from frdc.load.preset import FRDCDatasetPreset
@@ -25,9 +25,9 @@ ds = FRDCDatasetPreset.chestnut_20201218()
 Then, we can use the `ds` object to load objects of the dataset:
 
 ```python
-ar, order = ds.get_ar_bands()
-d = ds.get_ar_bands_as_dict()
-bounds, labels = ds.get_bounds_and_labels()
+ar, order = ds._get_ar_bands()
+d = ds._get_ar_bands_as_dict()
+bounds, labels = ds._get_legacy_bounds_and_labels()
 ```
 
 - `ar` is a stacked NDArray of the hyperspectral bands of shape (H x W x C)
@@ -45,19 +45,44 @@ bounds, labels = ds.get_bounds_and_labels()
 > NDArray, and returns the channel order as well.
 {style='note'}
 
-## Filters
 
-You can also selectively get the channels for both `get_ar_bands()` and
-`get_ar_bands_as_dict()` by providing a list of strings to the `bands`
-argument.
+### I can't find a dataset!
 
-For example, to get the Wideband RGB bands, you can do:
+Some datasets, especially new ones may be unregistered and you must specify
+the **exact** site / date / version of it.
 
 ```python
-ar, order = ds.get_ar_bands(bands=['WR', 'WG', 'WB'])
-d = ds.get_ar_bands_as_dict(bands=['WR', 'WG', 'WB'])
+from frdc.load.dataset import FRDCDataset
+
+ds = FRDCDataset(site="mysite", date="mydate", version="myversion")
 ```
 
-This will also alter the channel order to the order of the bands provided.
+> `version` can be `None` if there isn't one.
+{style='note'}
 
-See [load.gcs](load.gcs.md#configuration) for configuration options.
+See below for examples on how to format this.
+
+<tabs>
+<tab title="ds/date/ver/">
+<list>
+<li><code>site=&quot;ds&quot;</code></li>
+<li><code>date=&quot;date&quot;</code></li>
+<li><code>version=&quot;ver&quot;</code></li>
+</list>
+</tab>
+<tab title="ds/date/ver/01/data/">
+<list>
+<li><code>site=&quot;ds&quot;</code></li>
+<li><code>date=&quot;date&quot;</code></li>
+<li><code>version=&quot;ver/01/data&quot;</code></li>
+</list>
+</tab>
+<tab title="ds/date/">
+<list>
+<li><code>site=&quot;ds&quot;</code></li>
+<li><code>date=&quot;date&quot;</code></li>
+<li><code>version=None</code></li>
+</list>
+</tab>
+</tabs>
+
