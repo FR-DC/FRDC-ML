@@ -29,13 +29,12 @@ else:
     ENV_EXAMPLE_FILE = ROOT_DIR / ".env.example"
     if ENV_EXAMPLE_FILE.exists():
         shutil.copy(ENV_EXAMPLE_FILE, ENV_FILE)
-        raise FileNotFoundError(
+        logger.warning(
             f"Environment file not found at {ENV_FILE.as_posix()}. "
             "A new one has been created from the .env.example file.\n"
-            "Set the necessary variables and re-run the script."
         )
     else:
-        raise FileNotFoundError(
+        logger.warning(
             f"Environment file not found at {ENV_FILE.as_posix()}. "
             "Please create one or copy the .env.example file in the GitHub "
             "repository."

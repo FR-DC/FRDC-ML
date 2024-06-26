@@ -47,3 +47,8 @@ steps such as:
 - Google Cloud Application Default Credentials
 - Weight & Bias API Key
 - Label Studio API Key
+
+> You can set the API Keys in the `.env` file in the root of the project.
+> Be careful not to commit the `.env` file to the repository, which should
+> have been ignored by default.
+{style='note'}
