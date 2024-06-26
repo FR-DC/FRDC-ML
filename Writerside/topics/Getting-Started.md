@@ -56,13 +56,25 @@
       poetry install --with dev
     </code-block>
   </step>
+  <step>
+    Make a copy of the <code>.env.example</code> file and rename it to 
+    <code>.env</code>
+  </step>
+  <step>Fill in additional environment variables in the <code>.env</code> file
+    <code-block>
+      LABEL_STUDIO_API_KEY=...
+      LABEL_STUDIO_HOST=10.97.41.70
+      LABEL_STUDIO_PORT=8080
+      GCS_PROJECT_ID=frmodel
+      GCS_BUCKET_NAME=frdc-ds
+    </code-block>
+  </step>
   <step>Install Pre-Commit Hooks
     <code-block lang="shell">
       pre-commit install
     </code-block>
   </step>
 </procedure>
-
 
 <procedure title="Setting Up Google Cloud" id="gcloud">
   <step>
