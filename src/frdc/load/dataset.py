@@ -8,11 +8,14 @@ from typing import Iterable, Callable, Any
 
 import numpy as np
 import pandas as pd
+import torch
 from PIL import Image
 from sklearn.preprocessing import StandardScaler
 from torch import rot90
 from torch.utils.data import Dataset, ConcatDataset
+from torchvision.transforms.v2 import Compose
 from torchvision.transforms.v2.functional import hflip
+from torchvision.tv_tensors import Image as ImageTensor
 
 from frdc.conf import BAND_CONFIG, LABEL_STUDIO_CLIENT
 from frdc.load import gcs
@@ -21,9 +24,49 @@ from frdc.preprocess.extract_segments import (
     extract_segments_from_bounds,
     extract_segments_from_polybounds,
 )
-from frdc.utils import Rect
+from frdc.utils.utils import Rect, flatten_nested, map_nested
 
 logger = logging.getLogger(__name__)
+
+
+class ImageStandardScaler(StandardScaler):
+    def fit(self, X, y=None, sample_weight=None):
+        X = X.reshape(X.shape[0], -1)
+        return super().fit(X, y, sample_weight)
+
+    def transform(self, X, copy=None):
+        shape = X.shape
+        X = X.reshape(shape[0], -1)
+        X = torch.nan_to_num(X, nan=0)
+        X = super().transform(X, copy).reshape(*shape)
+        X = torch.tensor(X)
+        return X.to(torch.float32)
+
+    def transform_one(self, X, copy=None):
+        shape = X.shape
+        X = X.reshape(1, -1)
+        return self.transform(X, copy).reshape(shape)
+
+    def inverse_transform(self, X, y=None, **fit_params):
+        shape = X.shape
+        X = X.reshape(shape[0], -1)
+        return (
+            super()
+            .inverse_transform(X, y, **fit_params)
+            .reshape(shape[0], *shape[1:])
+        )
+
+    def fit_nested(self, X):
+        # Adapted method of `fit` to handle nested lists/tuples
+        X = torch.stack(flatten_nested(X, type_list=(list, tuple)))
+        self.fit(X)
+        return self
+
+    def transform_nested(self, X):
+        # Adapted method of `transform` to handle nested lists/tuples
+        # This preserves the nested structure of the input by treating every
+        # atom as a single entity and transforming as-is.
+        return map_nested(X, self.transform_one, ImageTensor, (list, tuple))
 
 
 @dataclass
@@ -33,8 +76,7 @@ class FRDCDataset(Dataset):
         site: str,
         date: str,
         version: str | None,
-        transform: Callable[[np.ndarray], Any] = lambda x: x,
-        transform_scale: bool | StandardScaler = True,
+        transform: Compose = lambda x: x,
         target_transform: Callable[[str], str] = lambda x: x,
         use_legacy_bounds: bool = False,
         polycrop: bool = False,
@@ -58,9 +100,6 @@ class FRDCDataset(Dataset):
             date: The date of the dataset, e.g. "20201218".
             version: The version of the dataset, e.g. "183deg".
             transform: The transform to apply to each segment.
-            transform_scale: Whether to scale the data. If True, it will fit
-                a StandardScaler to the data. If a StandardScaler is passed,
-                it will use that instead. If False, it will not scale the data.
             target_transform: The transform to apply to each label.
             use_legacy_bounds: Whether to use the legacy bounds.csv file.
                 This will automatically be set to True if LABEL_STUDIO_CLIENT
@@ -100,33 +139,6 @@ class FRDCDataset(Dataset):
         self.transform = transform
         self.target_transform = target_transform
 
-        if transform_scale is True:
-            self.x_scaler = StandardScaler()
-            self.x_scaler.fit(
-                np.concatenate(
-                    [
-                        # Segments: [H x W x C] -> [H*W, C]
-                        # Reshaping is necessary for StandardScaler
-                        segm.reshape(-1, segm.shape[-1])
-                        for segm in self.ar_segments
-                    ]
-                )
-            )
-            self.transform = lambda x: transform(
-                self.x_scaler.transform(x.reshape(-1, x.shape[-1])).reshape(
-                    x.shape
-                )
-            )
-        elif isinstance(transform_scale, StandardScaler):
-            self.x_scaler = transform_scale
-            self.transform = lambda x: transform(
-                self.x_scaler.transform(x.reshape(-1, x.shape[-1])).reshape(
-                    x.shape
-                )
-            )
-        else:
-            self.x_scaler = None
-
     def __len__(self):
         return len(self.ar_segments)
 
@@ -159,7 +171,7 @@ class FRDCDataset(Dataset):
                 get all bands in BAND_CONFIG.
 
         Examples:
-            >>> get_ar_bands_as_dict(['WB', 'WG', 'WR']])
+            >>> self._get_ar_bands_as_dict(['WB', 'WG', 'WR']])
 
             Returns
 
@@ -208,7 +220,7 @@ class FRDCDataset(Dataset):
                 get all bands in BAND_CONFIG.
 
         Examples
-            >>> get_ar_bands(['WB', 'WG', 'WR'])
+            >>> self._get_ar_bands(['WB', 'WG', 'WR'])
 
             Returns
 

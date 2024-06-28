@@ -3,8 +3,6 @@ import torch
 import wandb
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 
-from frdc.utils.utils import fn_recursive
-
 
 def mix_up(
     x: torch.Tensor,
