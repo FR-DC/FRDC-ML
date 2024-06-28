@@ -23,7 +23,7 @@ BANDS = ["NB", "NG", "NR", "RE", "NIR"]
 
 
 def n_times(f, n: int):
-    return lambda x: [f(x) for _ in range(n)]
+    return Compose([lambda x: [f(x) for _ in range(n)]])
 
 
 def n_rand_weak_aug(size, n_aug: int = 2):
