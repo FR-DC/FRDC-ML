@@ -42,7 +42,7 @@ from frdc.preprocess.scale import (
 from frdc.conf import BAND_MAX_CONFIG
 
 ds = FRDCDatasetPreset.chestnut_20201218()
-ar, order = ds.get_ar_bands()
+ar, order = ds._get_ar_bands()
 ar_01 = scale_0_1_per_band(ar)
 ar_norm = scale_normal_per_band(ar)
 ar_static = scale_static_per_band(ar, order, BAND_MAX_CONFIG)

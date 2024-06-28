@@ -6,7 +6,7 @@ from lightning import LightningModule
 from sklearn.preprocessing import OrdinalEncoder
 
 from frdc.models.utils import save_unfrozen, load_checkpoint_lenient
-from frdc.utils.utils import fn_recursive
+from frdc.utils.utils import map_nested
 
 
 class FRDCModule(LightningModule):
@@ -98,7 +98,7 @@ class FRDCModule(LightningModule):
 
         # This function applies nan_to_num to all tensors in the list,
         # regardless of how deeply nested they are.
-        x_unl_trans = fn_recursive(
+        x_unl_trans = map_nested(
             x_unl,
             fn=lambda x: torch.nan_to_num(x[nan]),
             type_atom=torch.Tensor,

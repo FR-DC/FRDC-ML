@@ -1,155 +1,173 @@
 # Getting Started
 
-> Want to use a Dev Container? See [Get Started with Dev Containers](Get-Started-with-Dev-Containers.md)
+> Want to use a Dev Container?
+> See [Get Started with Dev Containers](Get-Started-with-Dev-Containers.md)
 
 <procedure title="Installing the Dev. Environment" id="install">
-    <step>Ensure that you have the right version of Python.
-        The required Python version can be seen in <code>pyproject.toml</code>
-        <code-block lang="ini">
-            [tool.poetry.dependencies]
-            python = "..."
-        </code-block>
-    </step>
-    <step>Start by cloning our repository.
+  <step>Ensure that you have the right version of Python.
+    The required Python version can be seen in <code>pyproject.toml</code>
+    <code-block lang="ini">
+        [tool.poetry.dependencies]
+        python = "..."
+    </code-block>
+  </step>
+  <step>Start by cloning our repository.
+    <code-block lang="shell">
+      git clone https://github.com/FR-DC/FRDC-ML.git
+    </code-block>
+  </step>
+  <step>Then, create a Python Virtual Env <code>pyvenv</code>
+    <tabs>
+    <tab title="Windows">
+      <code-block lang="shell">python -m venv venv/</code-block>
+    </tab>
+    <tab title="Linux">
+      <code-block lang="shell">python3 -m venv venv/</code-block>
+    </tab>
+    </tabs> 
+  </step>
+  <step>
+    <a href="https://python-poetry.org/docs/">Install Poetry</a>
+    Then check if it's installed with
+    <code-block lang="shell">poetry --version</code-block>
+    <warning>
+    If <code>poetry</code> is not found, it's likely not in the user PATH.
+    </warning>
+  </step>
+  <step>Activate the virtual environment
+    <tabs>
+      <tab title="Windows">
         <code-block lang="shell">
-          git clone https://github.com/FR-DC/FRDC-ML.git
+          cd venv/Scripts
+          activate
+          cd ../..
         </code-block>
-    </step>
-    <step>Then, create a Python Virtual Env <code>pyvenv</code>
-        <tabs>
-        <tab title="Windows">
-          <code-block lang="shell">python -m venv venv/</code-block>
-        </tab>
-        <tab title="Linux">
-          <code-block lang="shell">python3 -m venv venv/</code-block>
-        </tab>
-        </tabs> 
-    </step>
-    <step>
-        <a href="https://python-poetry.org/docs/">Install Poetry</a>
-        Then check if it's installed with
-        <code-block lang="shell">poetry --version</code-block>
-        <warning>
-        If <code>poetry</code> is not found, it's likely not in the user PATH.
-        </warning>
-    </step>
-    <step>Activate the virtual environment
-        <tabs>
-        <tab title="Windows">
+      </tab>
+      <tab title="Linux">
         <code-block lang="shell">
-            cd venv/Scripts
-            activate
-            cd ../..
+          source venv/bin/activate
         </code-block>
-        </tab>
-        <tab title="Linux">
-        <code-block lang="shell">
-            source venv/bin/activate
-        </code-block>
-        </tab>
-        </tabs> 
-    </step>
-    <step>Install the dependencies. You should be in the same directory as
-        <code>pyproject.toml</code>
-        <code-block lang="shell">
-            poetry install --with dev
-        </code-block>
-    </step>
-    <step>Install Pre-Commit Hooks
-        <code-block lang="shell">
-            pre-commit install
-        </code-block>
-    </step>
+      </tab>
+    </tabs> 
+  </step>
+  <step>Install the dependencies. You should be in the same directory as
+    <code>pyproject.toml</code>
+    <code-block lang="shell">
+      poetry install --with dev
+    </code-block>
+  </step>
+  <step>
+    Make a copy of the <code>.env.example</code> file and rename it to 
+    <code>.env</code>
+  </step>
+  <step>Fill in additional environment variables in the <code>.env</code> file
+    <code-block>
+      LABEL_STUDIO_API_KEY=...
+      LABEL_STUDIO_HOST=10.97.41.70
+      LABEL_STUDIO_PORT=8080
+      GCS_PROJECT_ID=frmodel
+      GCS_BUCKET_NAME=frdc-ds
+    </code-block>
+  </step>
+  <step>Install Pre-Commit Hooks
+    <code-block lang="shell">
+      pre-commit install
+    </code-block>
+  </step>
 </procedure>
 
-
 <procedure title="Setting Up Google Cloud" id="gcloud">
-    <step>
-        We use Google Cloud to store our datasets. To set up Google Cloud,
-        <a href="https://cloud.google.com/sdk/docs/install">
-          install the Google Cloud CLI
-        </a>
-    </step>
-    <step>
-        Then,
-        <a href="https://cloud.google.com/sdk/docs/initializing">
-          authenticate your account
-        </a>.
-        <code-block lang="shell">gcloud auth login</code-block>
-    </step>
-    <step>
-        Finally, 
-        <a href="https://cloud.google.com/docs/authentication/provide-credentials-adc">
-          set up Application Default Credentials (ADC)
-        </a>.
-        <code-block lang="shell">gcloud auth application-default login</code-block>
-    </step>
-    <step>
-        To make sure everything is working, <a anchor="tests">run the tests</a>.
-    </step>
+  <step>
+    We use Google Cloud to store our datasets. To set up Google Cloud,
+    <a href="https://cloud.google.com/sdk/docs/install">
+      install the Google Cloud CLI
+    </a>
+  </step>
+  <step>
+    Then,
+    <a href="https://cloud.google.com/sdk/docs/initializing">
+      authenticate your account
+    </a>.
+    <code-block lang="shell">gcloud auth login</code-block>
+  </step>
+  <step>
+    Finally, 
+    <a href="https://cloud.google.com/docs/authentication/provide-credentials-adc">
+      set up Application Default Credentials (ADC)
+    </a>.
+    <code-block lang="shell">gcloud auth application-default login</code-block>
+  </step>
+  <step>
+    To make sure everything is working, <a anchor="tests">run the tests</a>.
+  </step>
 </procedure>
 
 <procedure title="Setting Up Label Studio" id="ls">
-    <tip>This is only necessary if any task requires Label Studio annotations</tip>
-    <step>
-        We use Label Studio to annotate our datasets.
-        We won't go through how to install Label Studio, for contributors, it
-        should be up on <code>localhost:8080</code>.
-    </step>
-    <step>
-        Then, retrieve your own API key from Label Studio.
-        <a href="http://localhost:8080/user/account"> Go to your account page </a>
-        and copy the API key. <br/></step>
-    <step> Set your API key as an environment variable.
-        <tabs>
-<tab title="Windows">
+  <tip>This is only necessary if any task requires Label Studio annotations</tip>
+  <step>
+    We use Label Studio to annotate our datasets.
+    We won't go through how to install Label Studio, for contributors, it
+    should be up on <code>localhost:8080</code>.
+  </step>
+  <step>
+    Then, retrieve your own API key from Label Studio.
+    <a href="http://localhost:8080/user/account"> Go to your account page </a>
+    and copy the API key. <br/></step>
+  <step> Set your API key as an environment variable.
+    <tabs>
+      <tab title="Windows">
         In Windows, go to "Edit environment variables for
         your account" and add this as a new environment variable with name
         <code>LABEL_STUDIO_API_KEY</code>.
-</tab>
-<tab title="Linux">
+      </tab>
+      <tab title="Linux">
         Export it as an environment variable.
         <code-block lang="shell">export LABEL_STUDIO_API_KEY=...</code-block>
-</tab>
-</tabs>
-    </step>
+      </tab>
+      <tab title=".env">
+        In all cases, you can create a <code>.env</code> file in the root of 
+        the project and add the following line:
+        <code>LABEL_STUDIO_API_KEY=...</code>
+      </tab>
+    </tabs>
+  </step>
 </procedure>
 
 <procedure title="Setting Up Weight and Biases" id="wandb">
-    <step>
-        We use W&B to track our experiments. To set up W&B,
-        <a href="https://docs.wandb.ai/quickstart">
-          install the W&B CLI
-        </a>
-    </step>
-    <step>
-        Then, 
-        <a href="https://docs.wandb.ai/quickstart">
-          authenticate your account
-        </a>.
-        <code-block lang="shell">wandb login</code-block>
-    </step>
+  <step>
+    We use W&B to track our experiments. To set up W&B,
+    <a href="https://docs.wandb.ai/quickstart">
+      install the W&B CLI
+    </a>
+  </step>
+  <step>
+    Then, 
+    <a href="https://docs.wandb.ai/quickstart">
+      authenticate your account
+    </a>.
+    <code-block lang="shell">wandb login</code-block>
+  </step>
 </procedure>
 
 <procedure title="Pre-commit Hooks" collapsible="true">
-    <note>This is optional but recommended.
-    Pre-commit hooks are a way to ensure that your code is formatted correctly.
-    This is done by running a series of checks before you commit your code.
-    </note>
-    <step>
-        <code-block lang="shell">
-            pre-commit install
-        </code-block>
-    </step>
+  <note>This is optional but recommended.
+  Pre-commit hooks are a way to ensure that your code is formatted correctly.
+  This is done by running a series of checks before you commit your code.
+  </note>
+  <step>
+    <code-block lang="shell">
+      pre-commit install
+    </code-block>
+  </step>
 </procedure>
 
 <procedure title="Running the Tests" id="tests">
-    <step>
-        Run the tests to make sure everything is working
-        <code-block lang="shell">
-            pytest
-        </code-block>
-    </step>
+  <step>
+    Run the tests to make sure everything is working
+    <code-block lang="shell">
+      pytest
+    </code-block>
+  </step>
 </procedure>
 
 ## Troubleshooting
@@ -174,13 +192,15 @@ See [Setting Up Google Cloud](#gcloud)
 ### Couldn't connect to Label Studio
 
 Label Studio must be running locally, exposed on `localhost:8080`. Furthermore,
-you need to specify the `LABEL_STUDIO_API_KEY` environment variable. See 
+you need to specify the `LABEL_STUDIO_API_KEY` environment variable. See
 [Setting Up Label Studio](#ls)
 
 ### Cannot login to W&B
 
-You need to authenticate your W&B account. See [Setting Up Weight and Biases](#wandb)
-If you're facing difficulties, set the `WANDB_MODE` environment variable to `offline`
+You need to authenticate your W&B account.
+See [Setting Up Weight and Biases](#wandb)
+If you're facing difficulties, set the `WANDB_MODE` environment variable
+to `offline`
 to disable W&B.
 
 ## Our Repository Structure

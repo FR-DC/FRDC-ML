@@ -19,26 +19,23 @@ tqdm = "^4.66.1"
 xxhash = "^3.4.1"
 label-studio-sdk = "^0.0.32"
 
-#torch = {version="^2.1.0", source="pytorch"}
-#torchvision = {version="^0.16.0", source="pytorch"}
-#torchaudio = {version="^2.1.0", source="pytorch"}
-#lightning = "^2.0.9.post0"
 python-dotenv = "^1.0.1"
+torch = {version = "^2.3.1+cu121", source = "pytorch-gpu"}
+torchvision = {version = "^0.18.1+cu121", source = "pytorch-gpu"}
+torchaudio = {version = "^2.3.1+cu121", source = "pytorch-gpu"}
+lightning = "^2.3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.2"
-pre-commit = "^3.5.0"
 black = "^23.10.0"
-flake8 = "^6.1.0"
 wandb = "^0.16.0"
 plotly = "^5.22.0"
 
 
-
-
-[tool.poetry.group.glcm.dependencies]
-glcm-cupy = "0.2.1"
-cupy-cuda12x = "^12.2.0"
+[[tool.poetry.source]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core"]
