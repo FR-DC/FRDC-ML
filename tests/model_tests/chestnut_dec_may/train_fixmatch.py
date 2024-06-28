@@ -16,6 +16,7 @@ from lightning.pytorch.callbacks import (
 )
 from lightning.pytorch.loggers import WandbLogger
 
+from frdc.load.dataset import ImageStandardScaler
 from frdc.load.preset import FRDCDatasetPreset as ds
 from frdc.models.efficientnetb1 import (
     EfficientNetB1FixMatchModule,
@@ -56,13 +57,16 @@ def main(
     # Prepare the dataset
     im_size = 255
     train_lab_ds = ds.chestnut_20201218(transform=rand_weak_aug(im_size))
+    iss = ImageStandardScaler().fit_nested(train_lab_ds[:][0])
+    train_lab_ds.transform.append(iss.transform_nested)
     train_unl_ds = ds.chestnut_20201218.unlabelled(
         transform=n_rand_weak_strong_aug(im_size, unlabelled_factor),
     )
+    train_unl_ds.transform.append(iss.transform_nested)
     val_ds = ds.chestnut_20210510_43m(
         transform=const_weak_aug(im_size),
-        transform_scale=train_lab_ds.x_scaler,
     )
+    val_ds.transform.append(iss.transform_nested)
 
     # Prepare the datamodule and trainer
     dm = FRDCDataModule(
@@ -111,14 +115,11 @@ def main(
             f"# Chestnut Nature Park (Dec 2020 vs May 2021) FixMatch\n"
             f"- Results: [WandB Report]({wandb.run.get_url()})\n"
         )
-
-    y_true, y_pred = predict(
-        ds=ds.chestnut_20210510_43m.const_rotated(
-            transform=const_weak_aug(im_size),
-            transform_scale=train_lab_ds.x_scaler,
-        ),
-        model=m,
+    test_ds = ds.chestnut_20210510_43m.const_rotated(
+        transform=const_weak_aug(im_size),
     )
+    test_ds.transform.append(iss.transform_nested)
+    y_true, y_pred = predict(ds=test_ds, model=m)
     fig, ax = plot_confusion_matrix(y_true, y_pred, m.y_encoder.categories_[0])
     acc = np.sum(y_true == y_pred) / len(y_true)
     ax.set_title(f"Accuracy: {acc:.2%}")
