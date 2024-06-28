@@ -40,7 +40,7 @@ class ImageStandardScaler(StandardScaler):
         X = torch.nan_to_num(X, nan=0)
         X = super().transform(X, copy).reshape(*shape)
         X = torch.tensor(X)
-        return X
+        return X.to(torch.float32)
 
     def transform_one(self, X, copy=None):
         shape = X.shape
