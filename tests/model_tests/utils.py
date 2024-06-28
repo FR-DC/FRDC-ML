@@ -35,17 +35,18 @@ def n_rand_strong_aug(size, n_aug: int = 2):
 
 
 def n_rand_weak_strong_aug(size, n_aug: int = 2):
-    def f(x):
-        # x_weak = [weak_0, weak_1, ..., weak_n]
-        x_weak = n_rand_weak_aug(size, n_aug)(x)
-        # x_strong = [strong_0, strong_1, ..., strong_n]
-        x_strong = n_rand_strong_aug(size, n_aug)(x)
-        # x_paired = [(weak_0, strong_0), (weak_1, strong_1),
-        #             ..., (weak_n, strong_n)]
-        x_paired = list(zip(*[x_weak, x_strong]))
-        return x_paired
-
-    return f
+    return Compose(
+        [
+            lambda x: list(
+                zip(
+                    *[
+                        n_rand_weak_aug(size, n_aug)(x),
+                        n_rand_strong_aug(size, n_aug)(x),
+                    ]
+                )
+            )
+        ]
+    )
 
 
 def rand_weak_aug(size: int):
