@@ -8,6 +8,7 @@
                   start-page="Overview.md">
 
     <toc-element topic="Overview.md"/>
+    <toc-element topic="ML-Architecture.md"/>
     <toc-element topic="Getting-Started.md">
         <toc-element topic="Get-Started-with-Dev-Containers.md"/>
     </toc-element>
@@ -28,6 +29,5 @@
         <toc-element topic="preprocessing.extract_segments.md"/>
         <toc-element topic="preprocessing.morphology.md"/>
         <toc-element topic="preprocessing.glcm_padded.md"/>
-        <toc-element topic="train.frdc_lightning.md"/>
     </toc-element>
 </instance-profile>

@@ -80,6 +80,10 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
+      - name: Copy over .env
+        run: |
+          cp .env.example .env
+          
       - name: Run Model Training
         working-directory: ${{ github.workspace }}/tests
         run: |

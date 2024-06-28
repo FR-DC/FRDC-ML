@@ -238,14 +238,16 @@ class FRDCDatasetPreset:
     casuarina_20220418_93deg = FRDCDatasetPartial(
         "casuarina", "20220418", "93deg"
     )
-    DEBUG = lambda resize=299: FRDCDatasetPartial(
-        site="DEBUG", date="0", version=None
-    )(
-        transform=Compose(
-            [
-                ToImage(),
-                ToDtype(torch.float32),
-                Resize((resize, resize)),
-            ]
-        ),
-    )
+
+    @staticmethod
+    def _debug(resize=299, use_legacy_bounds=False):
+        return FRDCDatasetPartial(site="DEBUG", date="0", version=None)(
+            transform=Compose(
+                [
+                    ToImage(),
+                    ToDtype(torch.float32),
+                    Resize((resize, resize)),
+                ]
+            ),
+            use_legacy_bounds=use_legacy_bounds,
+        )
